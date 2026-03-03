@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LiveDoodle Display</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: white; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script>
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+
+  // Local copy of history for re-rendering on resize
+  let history = [];
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    redraw();
+  }
+
+  function drawSegment(msg) {
+    ctx.beginPath();
+    ctx.moveTo(msg.x0 * canvas.width, msg.y0 * canvas.height);
+    ctx.lineTo(msg.x1 * canvas.width, msg.y1 * canvas.height);
+    ctx.strokeStyle = msg.color;
+    ctx.lineWidth = msg.size;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.stroke();
+  }
+
+  function redraw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (const msg of history) {
+      drawSegment(msg);
+    }
+  }
+
+  function handleMessage(msg) {
+    if (msg.type === "sync") {
+      history = msg.history;
+      redraw();
+    } else if (msg.type === "stroke") {
+      history.push(msg);
+      drawSegment(msg);
+    } else if (msg.type === "clear") {
+      history = [];
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+
+  resizeCanvas();
+  window.addEventListener("resize", resizeCanvas);
+
+  // ── WebSocket ──
+  const WS_URL = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?role=display`;
+  let ws;
+
+  function connect() {
+    ws = new WebSocket(WS_URL);
+    ws.onmessage = e => handleMessage(JSON.parse(e.data));
+    ws.onclose = () => setTimeout(connect, 2000);
+  }
+
+  connect();
+</script>
+</body>
+</html>
