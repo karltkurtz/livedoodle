@@ -3,9 +3,9 @@ Description=LiveDoodle FastAPI Server
 After=network.target
 
 [Service]
-User=pi
-WorkingDirectory=/home/pi/livedoodle
-ExecStart=/home/pi/livedoodle/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000 --proxy-headers
+User=karltkurtz
+WorkingDirectory=/home/karltkurtz/livedoodle
+ExecStart=/home/karltkurtz/livedoodle/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000 --proxy-headers
 Restart=always
 RestartSec=5
 

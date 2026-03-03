@@ -64,14 +64,14 @@ main.py                  # FastAPI app, ConnectionManager, all routes + WS endpo
 templates/draw.html      # Self-contained drawing page (canvas, toolbar, WS client)
 templates/display.html   # Self-contained kiosk page (canvas, WS client, no UI)
 requirements.txt         # fastapi, uvicorn[standard], jinja2, python-multipart
-livedoodle.service       # systemd unit for Pi A (/home/pi/livedoodle, port 8000)
+livedoodle.service       # systemd unit for Pi A (/home/karltkurtz/livedoodle, port 8000)
 ```
 
 ## Hardware Context
 
-- **Pi A (server Pi):** Raspberry Pi 4, runs this FastAPI server, 7" display attached. `/display` runs in Chromium kiosk mode fullscreen.
+- **Pi A (server Pi):** Raspberry Pi 4, hostname `litebrite`, username `karltkurtz`. Runs the FastAPI server, 7" display attached. `/display` runs in Chromium kiosk mode fullscreen.
 - **Pi B (camera Pi):** Raspberry Pi 4 with HQ camera pointed at Pi A's display. Already streams — no code changes needed.
-- Both on Ethernet LAN. Exposed publicly via Cloudflare tunnel at `pigarage.com`.
+- Both on Ethernet LAN. Exposed publicly via Cloudflare tunnel at `pigarage.com` → port 8000.
 - Server binds to `0.0.0.0` and uses `--proxy-headers` to respect `X-Forwarded-For` from Cloudflare.
 
 ## Deploy Flow
@@ -82,16 +82,17 @@ git add -A && git commit -m "message"
 git push
 
 # 2. On Pi A
-ssh pi@<pi-a-ip>
+ssh karltkurtz@litebrite
 cd ~/livedoodle && git pull
 sudo systemctl restart livedoodle
 ```
 
 ## Pi A Service
 
-The systemd service is at `livedoodle.service`. Install:
+The systemd service is at `livedoodle.service`. It is already installed and enabled on Pi A.
 
 ```bash
+# Re-install after changes to the service file
 sudo cp livedoodle.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable livedoodle
@@ -99,3 +100,23 @@ sudo systemctl start livedoodle
 ```
 
 Logs: `sudo journalctl -u livedoodle -f`
+
+## Pi A Chromium Kiosk
+
+Autostart config lives at the **user level** (system-level path does not exist on this Pi OS version):
+
+```
+~/.config/lxsession/LXDE-pi/autostart
+```
+
+Contents:
+```
+@xset s off
+@xset -dpms
+@xset s noblank
+@chromium-browser --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble http://localhost:8000/display
+```
+
+## Known Issues
+
+- `pigarage.com` and `pigarage.com/draw` return `{"detail":"Not Found"}` from FastAPI — routes are not being matched when accessed via the Cloudflare tunnel. Needs investigation. Access `/draw` and `/display` directly for now if testing locally on Pi A.
