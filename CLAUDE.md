@@ -117,6 +117,3 @@ Contents:
 @chromium-browser --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble http://localhost:8000/display
 ```
 
-## Known Issues
-
-- `pigarage.com` and `pigarage.com/draw` return `{"detail":"Not Found"}` from FastAPI — routes are not being matched when accessed via the Cloudflare tunnel. Needs investigation. Access `/draw` and `/display` directly for now if testing locally on Pi A.
