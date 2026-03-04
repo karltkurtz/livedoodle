@@ -25,9 +25,10 @@ Single-file FastAPI server (`main.py`) with two HTML templates.
 
 | Route | Description |
 |-------|-------------|
-| `GET /` | Redirects to `/draw` |
+| `GET /` | Home page — branding, live snapshot feed, DRAW! button |
 | `GET /draw` | Mobile drawing canvas |
 | `GET /display` | Pi A kiosk display (zero UI) |
+| `GET /snapshot` | Latest JPEG frame from camera Pi (polled every 100ms) |
 | `WS /ws?role=draw\|display` | Single WebSocket endpoint |
 
 ### WebSocket Protocol
@@ -61,11 +62,31 @@ Strokes use **normalized coordinates** (0.0–1.0). The drawing client divides b
 
 ```
 main.py                  # FastAPI app, ConnectionManager, all routes + WS endpoint
+templates/home.html      # Public home page (branding, snapshot feed, DRAW! button)
 templates/draw.html      # Self-contained drawing page (canvas, toolbar, WS client)
 templates/display.html   # Self-contained kiosk page (canvas, WS client, no UI)
 requirements.txt         # fastapi, uvicorn[standard], jinja2, python-multipart
 livedoodle.service       # systemd unit for Pi A (/home/karltkurtz/livedoodle, port 8000)
+website-aesthetic.rtf    # Design brief — retro arcade / lo-fi pixel art aesthetic
 ```
+
+## Visual Design
+
+**Aesthetic:** Retro arcade / lo-fi pixel art — 1980s computer terminal crossed with a neon-lit arcade cabinet. See `website-aesthetic.rtf` for the full brief.
+
+**Rules:**
+- Font: `Share Tech Mono` (monospace) throughout all UI — no decorative or sans-serif fonts
+- Background: `#0a0a0a` (near-black)
+- Accent palette (amber, teal, coral, green, purple) — all saturated, used with `box-shadow` neon glows
+- Buttons: dark fill + vivid colored border + glow; no rounded pills, no gradients
+- Labels: ALL-CAPS, terse
+- Animations: pixel starfield (small squares drifting upward) on home page; cycling color animation (10s loop: amber → teal → coral → green → purple) on primary CTA; blinking dot on LIVE badge
+- Scanline overlay on home page via `repeating-linear-gradient`
+- No shadows for depth, no gradients for realism — flat + glowing only
+
+**Per-page notes:**
+- `home.html`: starfield canvas in background, DRAW! button cycles through accent colors, corner-bracket frame around stream feed
+- `draw.html`: toolbar only (canvas stays white as drawing surface), amber top-border glow on toolbar, square swatches with glow on active, teal glow for ERASER active, coral glow for CLEAR hover
 
 ## Hardware Context
 

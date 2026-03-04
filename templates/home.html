@@ -5,27 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LiveDoodle</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --y: #f9e000;
-      --c: #00e5ff;
-      --m: #ff003c;
-      --bg: #06060e;
+      --amber:  #ffb300;
+      --teal:   #00e5ff;
+      --coral:  #ff4a2a;
+      --green:  #39ff14;
+      --purple: #bf5fff;
+      --bg:     #0a0a0a;
     }
 
     html, body {
       width: 100%; min-height: 100%;
-      font-family: 'Barlow Condensed', sans-serif;
+      font-family: 'Share Tech Mono', monospace;
       background: var(--bg);
-      color: #8888aa;
+      color: #555;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      -webkit-font-smoothing: antialiased;
     }
 
     /* Scanlines */
@@ -37,11 +38,19 @@
         0deg,
         transparent 0px,
         transparent 3px,
-        rgba(0,0,0,0.07) 3px,
-        rgba(0,0,0,0.07) 4px
+        rgba(0,0,0,0.1) 3px,
+        rgba(0,0,0,0.1) 4px
       );
       pointer-events: none;
       z-index: 999;
+    }
+
+    /* Pixel starfield */
+    #starfield {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
     }
 
     #page {
@@ -64,31 +73,27 @@
 
     #wordmark {
       font-size: 11px;
-      font-weight: 700;
       letter-spacing: 0.28em;
       text-transform: uppercase;
-      color: var(--c);
-      opacity: 0.6;
+      color: var(--teal);
+      opacity: 0.5;
     }
 
     #live-badge {
       display: flex;
       align-items: center;
       gap: 6px;
-      font-family: 'Share Tech Mono', monospace;
       font-size: 9px;
       letter-spacing: 0.2em;
-      color: var(--m);
-      border: 1px solid rgba(255,0,60,0.45);
+      color: var(--coral);
+      border: 1px solid rgba(255,74,42,0.4);
       padding: 4px 10px;
-      clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
     }
 
     #live-dot {
       width: 5px; height: 5px;
-      border-radius: 50%;
-      background: var(--m);
-      box-shadow: 0 0 6px var(--m);
+      background: var(--coral);
+      box-shadow: 0 0 6px var(--coral);
       animation: blink 1s step-end infinite;
     }
 
@@ -98,52 +103,50 @@
     }
 
     /* Hero */
-    #hero { display: flex; flex-direction: column; gap: 10px; }
+    #hero { display: flex; flex-direction: column; gap: 12px; }
 
     h1 {
-      font-size: clamp(62px, 16vw, 104px);
-      font-weight: 900;
+      font-size: clamp(52px, 14vw, 88px);
+      font-weight: normal;
       letter-spacing: -0.01em;
-      line-height: 0.88;
+      line-height: 0.9;
       text-transform: uppercase;
-      color: var(--y);
+      color: var(--amber);
       text-shadow:
-        0 0 24px rgba(249,224,0,0.35),
-        0 0 72px rgba(249,224,0,0.12);
+        0 0 18px rgba(255,179,0,0.5),
+        0 0 54px rgba(255,179,0,0.12);
     }
 
     h1 .accent {
       display: block;
       color: transparent;
-      -webkit-text-stroke: 2px var(--c);
+      -webkit-text-stroke: 2px var(--teal);
       text-shadow:
-        0 0 20px rgba(0,229,255,0.35),
-        0 0 56px rgba(0,229,255,0.12);
+        0 0 14px rgba(0,229,255,0.45),
+        0 0 44px rgba(0,229,255,0.12);
     }
 
     #desc {
-      font-family: 'Share Tech Mono', monospace;
       font-size: 10px;
-      letter-spacing: 0.08em;
-      color: #252538;
+      letter-spacing: 0.12em;
+      color: #282828;
       text-transform: uppercase;
       line-height: 1.6;
     }
 
-    /* Thin cyan rule */
+    /* Rule */
     .rule {
       height: 1px;
-      background: linear-gradient(90deg, rgba(0,229,255,0.35), transparent);
+      background: linear-gradient(90deg, rgba(0,229,255,0.25), transparent);
     }
 
-    /* Stream with corner brackets */
+    /* Stream */
     #stream-frame {
       position: relative;
       width: 100%;
       padding: 4px;
     }
 
-    /* top-left, top-right brackets via #stream-frame and #stream-inner */
     #stream-frame::before,
     #stream-frame::after,
     #stream-inner::before,
@@ -151,44 +154,39 @@
       content: '';
       position: absolute;
       width: 14px; height: 14px;
-      border: 2px solid var(--c);
-      border-style: solid;
+      border: 2px solid var(--teal);
       z-index: 3;
       box-shadow: 0 0 6px rgba(0,229,255,0.3);
     }
 
-    #stream-frame::before { top: 0;   left: 0;   border-width: 2px 0 0 2px; }
-    #stream-frame::after  { top: 0;   right: 0;  border-width: 2px 2px 0 0; }
-    #stream-inner::before { bottom: 0; left: 0;  border-width: 0 0 2px 2px; }
-    #stream-inner::after  { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+    #stream-frame::before { top: 0;    left: 0;   border-width: 2px 0 0 2px; }
+    #stream-frame::after  { top: 0;    right: 0;  border-width: 2px 2px 0 0; }
+    #stream-inner::before { bottom: 0; left: 0;   border-width: 0 0 2px 2px; }
+    #stream-inner::after  { bottom: 0; right: 0;  border-width: 0 2px 2px 0; }
 
-    #stream-inner {
-      position: relative;
-      width: 100%;
-    }
+    #stream-inner { position: relative; width: 100%; }
 
     #stream-wrapper {
       width: 100%;
       aspect-ratio: 4/3;
-      background: #03030b;
-      border: 1px solid #0e0e20;
+      background: #030303;
+      border: 1px solid #111;
       overflow: hidden;
       position: relative;
     }
 
-    /* Moving horizontal scan line across the feed */
     #stream-wrapper::after {
       content: '';
       position: absolute;
       left: 0; right: 0;
       height: 2px;
       background: linear-gradient(90deg, transparent, rgba(0,229,255,0.5), transparent);
-      animation: scanline 3.5s linear infinite;
+      animation: scanmove 3.5s linear infinite;
       pointer-events: none;
       z-index: 2;
     }
 
-    @keyframes scanline {
+    @keyframes scanmove {
       0%   { top: -2px; }
       100% { top: 100%; }
     }
@@ -202,11 +200,10 @@
     #feed-label {
       position: absolute;
       bottom: 8px; right: 10px;
-      font-family: 'Share Tech Mono', monospace;
       font-size: 8px;
       letter-spacing: 0.15em;
-      color: var(--c);
-      opacity: 0.35;
+      color: var(--teal);
+      opacity: 0.3;
       z-index: 3;
     }
 
@@ -217,34 +214,37 @@
       gap: 14px;
     }
 
+    @keyframes cycle-color {
+      0%   { border-color: var(--amber);  box-shadow: 0 0 14px rgba(255,179,0,0.55),  0 0 36px rgba(255,179,0,0.12);  color: var(--amber);  }
+      20%  { border-color: var(--teal);   box-shadow: 0 0 14px rgba(0,229,255,0.55),  0 0 36px rgba(0,229,255,0.12);  color: var(--teal);   }
+      40%  { border-color: var(--coral);  box-shadow: 0 0 14px rgba(255,74,42,0.55),  0 0 36px rgba(255,74,42,0.12);  color: var(--coral);  }
+      60%  { border-color: var(--green);  box-shadow: 0 0 14px rgba(57,255,20,0.55),  0 0 36px rgba(57,255,20,0.12);  color: var(--green);  }
+      80%  { border-color: var(--purple); box-shadow: 0 0 14px rgba(191,95,255,0.55), 0 0 36px rgba(191,95,255,0.12); color: var(--purple); }
+      100% { border-color: var(--amber);  box-shadow: 0 0 14px rgba(255,179,0,0.55),  0 0 36px rgba(255,179,0,0.12);  color: var(--amber);  }
+    }
+
     #draw-btn {
       flex: 1;
-      padding: 15px 20px;
-      background: var(--y);
-      color: #000;
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: 20px;
-      font-weight: 900;
-      letter-spacing: 0.12em;
+      padding: 16px 20px;
+      background: var(--bg);
+      border: 2px solid var(--amber);
+      color: var(--amber);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 22px;
+      letter-spacing: 0.15em;
       text-transform: uppercase;
       text-decoration: none;
       text-align: center;
-      clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
-      transition: background 0.1s, box-shadow 0.1s;
-      box-shadow: 0 0 28px rgba(249,224,0,0.25);
+      display: block;
+      animation: cycle-color 10s linear infinite;
+      transition: opacity 0.1s;
     }
 
-    #draw-btn:hover {
-      background: #fff;
-      box-shadow: 0 0 44px rgba(249,224,0,0.5);
-    }
-
-    #draw-btn:active { opacity: 0.88; }
+    #draw-btn:active { opacity: 0.7; }
 
     #hint {
-      font-family: 'Share Tech Mono', monospace;
       font-size: 9px;
-      color: #18182a;
+      color: #1e1e1e;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       line-height: 1.9;
@@ -254,6 +254,8 @@
   </style>
 </head>
 <body>
+<canvas id="starfield"></canvas>
+
 <div id="page">
 
   <div id="meta">
@@ -286,9 +288,50 @@
   </div>
 
 </div>
+
 <script>
+  // Snapshot refresh
   const img = document.getElementById("stream");
   setInterval(() => { img.src = "/snapshot?" + Date.now(); }, 100);
+
+  // Pixel starfield
+  const sf = document.getElementById("starfield");
+  const ctx = sf.getContext("2d");
+  const COLORS = ["#ffb300", "#00e5ff", "#ff4a2a", "#39ff14", "#bf5fff"];
+  const SZ = 3;
+  const N = 40;
+
+  function resize() {
+    sf.width = window.innerWidth;
+    sf.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener("resize", resize);
+
+  const pixels = Array.from({ length: N }, () => ({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    speed: 0.3 + Math.random() * 0.6,
+    color: COLORS[Math.floor(Math.random() * COLORS.length)],
+    opacity: 0.08 + Math.random() * 0.22,
+  }));
+
+  (function tick() {
+    ctx.clearRect(0, 0, sf.width, sf.height);
+    for (const p of pixels) {
+      ctx.globalAlpha = p.opacity;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), SZ, SZ);
+      p.y -= p.speed;
+      if (p.y < -SZ) {
+        p.y = sf.height + SZ;
+        p.x = Math.random() * sf.width;
+        p.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+      }
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(tick);
+  })();
 </script>
 </body>
 </html>
