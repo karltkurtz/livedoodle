@@ -4,67 +4,107 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LiveDoodle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     html, body {
-      width: 100%; height: 100%;
-      background: #111;
-      font-family: system-ui, sans-serif;
+      width: 100%; min-height: 100%;
+      background: #0a0a0f;
+      font-family: 'Press Start 2P', monospace;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 24px;
-      padding: 24px;
+      gap: 32px;
+      padding: 32px 24px;
     }
 
-    #brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
+    /* Scanline overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(0, 0, 0, 0.12) 3px,
+        rgba(0, 0, 0, 0.12) 4px
+      );
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    /* Title */
+    #title {
+      text-align: center;
+      line-height: 1.6;
       user-select: none;
     }
 
+    #title .live {
+      font-size: clamp(20px, 5vw, 42px);
+      color: #ff3c3c;
+      text-shadow: 0 0 8px #ff3c3c, 0 0 24px #ff3c3c88;
+    }
+
+    #title .doodle {
+      font-size: clamp(20px, 5vw, 42px);
+      color: #00ffcc;
+      text-shadow: 0 0 8px #00ffcc, 0 0 24px #00ffcc88;
+    }
+
+    /* Live badge */
+    #live-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 10px;
+      color: #ff3c3c;
+      text-shadow: 0 0 6px #ff3c3c;
+      letter-spacing: 0.15em;
+    }
+
     #dot {
-      width: 14px; height: 14px;
+      width: 10px; height: 10px;
       border-radius: 50%;
-      background: #e63333;
-      box-shadow: 0 0 0 0 rgba(230, 51, 51, 0.6);
-      animation: pulse 1.6s ease-in-out infinite;
-      flex-shrink: 0;
+      background: #ff3c3c;
+      box-shadow: 0 0 6px #ff3c3c, 0 0 14px #ff3c3c;
+      animation: blink 1s step-end infinite;
     }
 
-    @keyframes pulse {
-      0%   { box-shadow: 0 0 0 0   rgba(230, 51, 51, 0.7); }
-      60%  { box-shadow: 0 0 0 10px rgba(230, 51, 51, 0); }
-      100% { box-shadow: 0 0 0 0   rgba(230, 51, 51, 0); }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
     }
 
-    #brand-live {
-      font-size: 28px;
-      font-weight: 800;
-      letter-spacing: 0.05em;
-      color: #ffffff;
-      text-transform: uppercase;
-    }
-
-    #brand-doodle {
-      font-size: 28px;
-      font-weight: 400;
-      font-style: italic;
-      color: #888;
-      letter-spacing: 0.02em;
-    }
-
+    /* Stream */
     #stream-wrapper {
       width: 100%;
-      max-width: 640px;
+      max-width: 600px;
       aspect-ratio: 16/9;
       background: #000;
-      border-radius: 8px;
-      overflow: hidden;
       position: relative;
+      box-shadow:
+        0 0 0 3px #00ffcc,
+        0 0 0 6px #0a0a0f,
+        0 0 0 9px #ff3c3c,
+        0 0 40px #00ffcc55;
+    }
+
+    #stream-wrapper::before {
+      content: '◄ LIVE FEED ►';
+      position: absolute;
+      top: -26px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 9px;
+      color: #ff3c3c;
+      text-shadow: 0 0 6px #ff3c3c;
+      letter-spacing: 0.2em;
+      white-space: nowrap;
     }
 
     #stream {
@@ -74,35 +114,48 @@
       display: block;
     }
 
+    /* Draw button */
     #draw-btn {
       display: block;
-      padding: 16px 48px;
-      background: #e63333;
-      color: white;
-      font-size: 22px;
-      font-weight: 800;
+      padding: 18px 44px;
+      background: #ff3c3c;
+      color: #fff;
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(14px, 3vw, 20px);
       letter-spacing: 0.1em;
       text-decoration: none;
-      border-radius: 8px;
-      transition: opacity 0.15s;
+      text-shadow: 2px 2px 0 #880000;
+      box-shadow: 5px 5px 0 #aa1111, 10px 10px 0 #550000;
+      transition: transform 0.08s, box-shadow 0.08s;
     }
 
-    #draw-btn:active { opacity: 0.7; }
+    #draw-btn:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 7px 7px 0 #aa1111, 12px 12px 0 #550000;
+    }
+
+    #draw-btn:active {
+      transform: translate(5px, 5px);
+      box-shadow: none;
+    }
   </style>
 </head>
 <body>
 
-<div id="brand">
+<div id="title">
+  <span class="live">LIVE</span><span class="doodle">DOODLE</span>
+</div>
+
+<div id="live-badge">
   <div id="dot"></div>
-  <span id="brand-live">Live</span>
-  <span id="brand-doodle">Doodle</span>
+  ON AIR
 </div>
 
 <div id="stream-wrapper">
   <img id="stream" src="/snapshot" alt="Live feed" />
 </div>
 
-<a id="draw-btn" href="/draw">DRAW!</a>
+<a id="draw-btn" href="/draw">[ DRAW! ]</a>
 
 <script>
   const img = document.getElementById("stream");
