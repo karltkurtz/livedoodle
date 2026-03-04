@@ -5,96 +5,99 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LiveDoodle</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Paytone+One&family=Nunito:wght@700;900&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     html, body {
       width: 100%; min-height: 100%;
-      background: #0a0a0f;
-      font-family: 'Press Start 2P', monospace;
+      background: #0e0e14;
+      font-family: 'Nunito', sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 32px;
-      padding: 32px 24px;
+      gap: 28px;
+      padding: 32px 20px;
+      overflow-x: hidden;
     }
 
-    /* Scanline overlay */
-    body::after {
-      content: '';
+    /* Animated background blobs */
+    .blob {
       position: fixed;
-      inset: 0;
-      background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 3px,
-        rgba(0, 0, 0, 0.12) 3px,
-        rgba(0, 0, 0, 0.12) 4px
-      );
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.18;
       pointer-events: none;
-      z-index: 999;
+      z-index: 0;
+      animation: float 8s ease-in-out infinite;
+    }
+    .blob-1 { width: 400px; height: 400px; background: #ff3cac; top: -100px; left: -100px; animation-delay: 0s; }
+    .blob-2 { width: 300px; height: 300px; background: #40e0d0; bottom: -80px; right: -80px; animation-delay: -3s; }
+    .blob-3 { width: 250px; height: 250px; background: #f9a825; top: 40%; left: 60%; animation-delay: -5s; }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33%       { transform: translate(20px, -20px) scale(1.05); }
+      66%       { transform: translate(-15px, 15px) scale(0.97); }
+    }
+
+    /* Everything above the blobs */
+    #content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+      width: 100%;
     }
 
     /* Title */
     #title {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
       user-select: none;
     }
 
-    #title .live {
-      font-size: clamp(20px, 5vw, 42px);
-      color: #ff3c3c;
-      text-shadow: 0 0 8px #ff3c3c, 0 0 24px #ff3c3c88;
-    }
-
-    #title .doodle {
-      font-size: clamp(20px, 5vw, 42px);
-      color: #00ffcc;
-      text-shadow: 0 0 8px #00ffcc, 0 0 24px #00ffcc88;
+    #title h1 {
+      font-family: 'Paytone One', sans-serif;
+      font-size: clamp(32px, 8vw, 64px);
+      background: linear-gradient(135deg, #ff3cac 0%, #ff8c42 50%, #ffe66d 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
     }
 
     #dot {
-      width: 10px; height: 10px;
+      width: 12px; height: 12px;
       border-radius: 50%;
-      background: #ff3c3c;
-      box-shadow: 0 0 6px #ff3c3c, 0 0 14px #ff3c3c;
-      animation: blink 1s step-end infinite;
+      background: #ff3cac;
+      box-shadow: 0 0 0 3px rgba(255, 60, 172, 0.25);
+      animation: pulse 1.8s ease-in-out infinite;
+      flex-shrink: 0;
     }
 
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50%       { opacity: 0; }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 3px rgba(255, 60, 172, 0.25); }
+      50%       { box-shadow: 0 0 0 8px rgba(255, 60, 172, 0); }
     }
 
     /* Stream */
     #stream-wrapper {
       width: 100%;
-      max-width: 600px;
+      max-width: 580px;
       aspect-ratio: 4/3;
       background: #000;
+      border-radius: 20px;
+      overflow: hidden;
       position: relative;
       box-shadow:
-        0 0 0 3px #00ffcc,
-        0 0 0 6px #0a0a0f,
-        0 0 0 9px #ff3c3c,
-        0 0 40px #00ffcc55;
-    }
-
-    #stream-wrapper::before {
-      content: '◄ LIVE FEED ►';
-      position: absolute;
-      top: -26px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 9px;
-      color: #ff3c3c;
-      text-shadow: 0 0 6px #ff3c3c;
-      letter-spacing: 0.2em;
-      white-space: nowrap;
+        0 0 0 2px rgba(255,255,255,0.06),
+        0 20px 60px rgba(0,0,0,0.6),
+        0 0 40px rgba(255, 60, 172, 0.15);
     }
 
     #stream {
@@ -104,44 +107,84 @@
       display: block;
     }
 
+    /* Live chip */
+    #live-chip {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(6px);
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: 0.08em;
+    }
+
+    #live-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #ff3c3c;
+      animation: blink 1s step-end infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+
     /* Draw button */
     #draw-btn {
       display: block;
-      padding: 18px 44px;
-      background: #ff3c3c;
+      padding: 18px 56px;
+      background: linear-gradient(135deg, #ff3cac, #ff8c42);
       color: #fff;
-      font-family: 'Press Start 2P', monospace;
-      font-size: clamp(14px, 3vw, 20px);
-      letter-spacing: 0.1em;
+      font-family: 'Paytone One', sans-serif;
+      font-size: clamp(18px, 4vw, 26px);
+      letter-spacing: 0.05em;
       text-decoration: none;
-      text-shadow: 2px 2px 0 #880000;
-      box-shadow: 5px 5px 0 #aa1111, 10px 10px 0 #550000;
-      transition: transform 0.08s, box-shadow 0.08s;
+      border-radius: 999px;
+      box-shadow: 0 8px 30px rgba(255, 60, 172, 0.45);
+      transition: transform 0.15s, box-shadow 0.15s;
     }
 
     #draw-btn:hover {
-      transform: translate(-2px, -2px);
-      box-shadow: 7px 7px 0 #aa1111, 12px 12px 0 #550000;
+      transform: translateY(-3px) scale(1.03);
+      box-shadow: 0 14px 40px rgba(255, 60, 172, 0.55);
     }
 
     #draw-btn:active {
-      transform: translate(5px, 5px);
-      box-shadow: none;
+      transform: translateY(1px) scale(0.98);
+      box-shadow: 0 4px 16px rgba(255, 60, 172, 0.35);
     }
   </style>
 </head>
 <body>
 
-<div id="title">
-  <div id="dot"></div>
-  <span class="live">Live</span><span class="doodle">Doodle</span>
-</div>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="blob blob-3"></div>
 
-<div id="stream-wrapper">
-  <img id="stream" src="/snapshot" alt="Live feed" />
-</div>
+<div id="content">
+  <div id="title">
+    <div id="dot"></div>
+    <h1>LiveDoodle</h1>
+  </div>
 
-<a id="draw-btn" href="/draw">DRAW!</a>
+  <div id="stream-wrapper">
+    <img id="stream" src="/snapshot" alt="Live feed" />
+    <div id="live-chip">
+      <div id="live-dot"></div>
+      LIVE
+    </div>
+  </div>
+
+  <a id="draw-btn" href="/draw">DRAW!</a>
+</div>
 
 <script>
   const img = document.getElementById("stream");
