@@ -2,7 +2,7 @@ import asyncio
 import json
 import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 
 CAMERA_URL = "http://10.0.0.8:8080/?action=snapshot"
@@ -74,9 +74,9 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-@app.get("/")
-async def root():
-    return RedirectResponse(url="/draw")
+@app.get("/", response_class=HTMLResponse)
+async def home_page(request: Request):
+    return templates.TemplateResponse("home.html", {"request": request})
 
 
 @app.get("/draw", response_class=HTMLResponse)
