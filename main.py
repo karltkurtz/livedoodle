@@ -121,7 +121,7 @@ class ConnectionManager:
             self.display_clients.remove(websocket)
 
     def update_history(self, message: dict):
-        if message["type"] == "stroke":
+        if message["type"] in ("stroke", "stamp"):
             self.history.append(message)
 
     async def end_session(self, websocket: WebSocket, name: str, duration: int, clear_display: bool = True):
@@ -198,7 +198,7 @@ async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
             data = await websocket.receive_text()
             message = json.loads(data)
             if role == "draw":
-                if message["type"] == "stroke":
+                if message["type"] in ("stroke", "stamp"):
                     if not manager.history:
                         await manager.broadcast_to_displays({"type": "clear"})
                     manager.update_history(message)
