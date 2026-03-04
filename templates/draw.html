@@ -321,10 +321,23 @@
   const ctx = canvas.getContext("2d");
   const wrapper = document.getElementById("canvas-wrapper");
 
+  const localHistory = [];
+
+  function replayHistory() {
+    for (const s of localHistory) {
+      drawSegment(
+        s.x0 * canvas.width,  s.y0 * canvas.height,
+        s.x1 * canvas.width,  s.y1 * canvas.height,
+        s.color, s.size
+      );
+    }
+  }
+
   function resizeCanvas() {
     const rect = wrapper.getBoundingClientRect();
     canvas.width = Math.round(rect.width);
     canvas.height = Math.round(rect.height);
+    replayHistory();
   }
   resizeCanvas();
   window.addEventListener("resize", resizeCanvas);
@@ -369,6 +382,7 @@
 
   // ── Clear ──
   document.getElementById("clear-btn").addEventListener("click", () => {
+    localHistory.length = 0;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const duration = Math.round((Date.now() - sessionStart) / 1000);
     send({ type: "clear", name: "Anonymous", duration });
@@ -399,13 +413,14 @@
     if (!drawing) return;
     const color = getColor();
     const size = brushSize;
-    drawSegment(prevX, prevY, x, y, color, size);
-    send({
-      type: "stroke",
-      color, size,
+    const stroke = {
+      type: "stroke", color, size,
       x0: prevX / canvas.width,  y0: prevY / canvas.height,
       x1: x    / canvas.width,   y1: y    / canvas.height,
-    });
+    };
+    drawSegment(prevX, prevY, x, y, color, size);
+    localHistory.push(stroke);
+    send(stroke);
     prevX = x; prevY = y;
   }
 
@@ -473,6 +488,7 @@
   function submitDoodle() {
     const name = nameInput.value.trim() || "Anonymous";
     const duration = Math.round((Date.now() - sessionStart) / 1000);
+    localHistory.length = 0;
     send({ type: "finish", name, duration });
     modalOverlay.classList.remove("visible");
   }
