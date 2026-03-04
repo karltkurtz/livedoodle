@@ -58,6 +58,22 @@ Strokes use **normalized coordinates** (0.0–1.0). The drawing client divides b
 
 `ConnectionManager.history` holds all strokes since the last clear. It's unbounded but resets on clear. New display clients receive the full history as a single `sync` message and replay it immediately.
 
+### Planned: Additional WS Message Types
+
+```json
+// Draw → server (submit artwork; server saves to artwork_history.json)
+{"type": "finish", "name": "Karl"}
+
+// Draw → server (same as clear but also triggers artwork save before clearing)
+{"type": "clear"}
+```
+
+On `finish` or `clear`, the server calls `end_session(websocket, name)` which:
+1. Snapshots current `history` for that connection
+2. Looks up geo from `_geo_cache` using the connection's IP
+3. Appends entry to `artwork_history.json` (max 50, drop oldest)
+4. Clears history and broadcasts clear to display clients
+
 ## Files
 
 ```
@@ -65,6 +81,8 @@ main.py                  # FastAPI app, ConnectionManager, all routes + WS endpo
 templates/home.html      # Public home page (branding, snapshot feed, DRAW! button)
 templates/draw.html      # Self-contained drawing page (canvas, toolbar, WS client)
 templates/display.html   # Self-contained kiosk page (canvas, WS client, no UI)
+templates/artwork.html   # [planned] Gallery page — fetches /artwork/entries, replays strokes on canvases
+artwork_history.json     # [planned] Flat JSON array of saved artwork entries (max 50)
 requirements.txt         # fastapi, uvicorn[standard], jinja2, python-multipart
 livedoodle.service       # systemd unit for Pi A (/home/karltkurtz/livedoodle, port 8000)
 website-aesthetic.rtf    # Design brief — retro arcade / lo-fi pixel art aesthetic
@@ -85,8 +103,9 @@ website-aesthetic.rtf    # Design brief — retro arcade / lo-fi pixel art aesth
 - No shadows for depth, no gradients for realism — flat + glowing only
 
 **Per-page notes:**
-- `home.html`: starfield canvas in background, DRAW! button cycles through accent colors, corner-bracket frame around stream feed
-- `draw.html`: toolbar only (canvas stays white as drawing surface), amber top-border glow on toolbar, square swatches with glow on active, teal glow for ERASER active, coral glow for CLEAR hover
+- `home.html`: starfield canvas in background, DRAW! button cycles through accent colors, corner-bracket frame around stream feed; dim stats row after actions showing visitor count + recent cities
+- `draw.html`: toolbar only (canvas stays white as drawing surface), amber top-border glow on toolbar, square swatches with glow on active, teal glow for ERASER active, coral glow for CLEAR hover; DONE button triggers name prompt then sends `{type:"finish", name}`
+- `artwork.html`: [planned] grid of past artwork canvases; each replays its stroke list; shows name, location, date
 
 ## Hardware Context
 
@@ -97,15 +116,21 @@ website-aesthetic.rtf    # Design brief — retro arcade / lo-fi pixel art aesth
 
 ## Deploy Flow
 
+**Workflow:** Make code changes → open Safari to preview → user says "commit" → commit + push + deploy.
+
+- NEVER auto-commit. Only commit when user explicitly says "commit".
+- After making changes, always open Safari to the relevant pigarage.com page for review.
+- After user approves (says "commit"), do all three steps automatically: commit, push, deploy.
+
 ```bash
 # 1. Commit and push from Mac
-git add -A && git commit -m "message"
+git add <specific files> && git commit -m "message"
 git push
 
-# 2. On Pi A
-ssh karltkurtz@litebrite
-cd ~/livedoodle && git pull
-sudo systemctl restart livedoodle
+# 2. Deploy to Pi A (use IP — hostname 'litebrite' doesn't resolve from Mac)
+ssh karltkurtz@10.0.0.81 "cd ~/livedoodle && git pull && sudo systemctl restart livedoodle"
+# If Pi has local changes, stash first:
+ssh karltkurtz@10.0.0.81 "cd ~/livedoodle && git stash && git pull && sudo systemctl restart livedoodle"
 ```
 
 ## Pi A Service
@@ -122,6 +147,38 @@ sudo systemctl start livedoodle
 
 Logs: `sudo journalctl -u livedoodle -f`
 
+## Planned Features
+
+### 1. Visitor Count + Geolocation
+Add to `main.py`:
+- `_get_client_ip(request)` — reads `CF-Connecting-IP` → `X-Forwarded-For` → `request.client.host`
+- `_lookup_geo(ip)` — `GET http://ip-api.com/json/{ip}?fields=city,regionName,country`, 3s timeout, fallback `""`, cached in `_geo_cache: dict[str, str]`
+- `_unique_ips: set[str]` — unique visitor count
+- `_recent_locations: list[str]` — newest first, capped at 20; format "City, Region, Country"
+- Skip geo for private/loopback IPs
+- Pass `visitor_count` and `recent_locations` to `home.html`
+
+Display in `home.html`: dim stats row after `#actions` — `"NNN VISITORS // CITY • CITY • CITY"`. Font 8px, green count at low opacity, very dark location text.
+
+### 2. Past Artwork Gallery
+Add to `main.py`:
+- `end_session(websocket, name)` — snapshots history, looks up geo from cache by connection IP, appends to `artwork_history.json` (max 50 entries, drop oldest), clears board
+- Handle `{type: "finish", name}` WS message from draw clients → call `end_session()`
+- Handle `{type: "clear"}` → also call `end_session()` before clearing (save anonymous if strokes exist)
+- `GET /artwork/entries` — returns `artwork_history.json` as JSON
+- `GET /artwork` — serves `artwork.html`
+
+Entry format:
+```json
+{"strokes": [...], "name": "Karl", "location": "Austin, Texas, US", "time": 1709123456.789, "duration": 183}
+```
+
+Add to `draw.html`:
+- DONE button → name prompt popup → sends `{type: "finish", name}` over WS
+- Track session start time client-side for `duration`
+
+Add `templates/artwork.html`: fetches `/artwork/entries`, renders each as a canvas by replaying strokes. Shows name, location, date. Same retro aesthetic.
+
 ## Pi A Chromium Kiosk
 
 Autostart config lives at the **user level** (system-level path does not exist on this Pi OS version):
@@ -135,6 +192,12 @@ Contents:
 @xset s off
 @xset -dpms
 @xset s noblank
-@chromium --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble http://localhost:8000/display
+@bash -c 'sleep 5 && chromium --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble http://localhost:8000/display'
+```
+
+The `sleep 5` is required — without it, Chromium launches before the FastAPI server is ready and silently fails. If Chromium is ever not showing on the Pi display, launch it manually:
+
+```bash
+ssh karltkurtz@10.0.0.81 "DISPLAY=:0 chromium --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble http://localhost:8000/display &"
 ```
 
