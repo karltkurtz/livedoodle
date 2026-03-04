@@ -92,7 +92,6 @@
       position: relative;
     }
 
-    /* Amber top rule */
     #toolbar::before {
       content: '';
       position: absolute;
@@ -102,7 +101,6 @@
       box-shadow: 0 0 8px rgba(255,179,0,0.6);
     }
 
-    /* Branding */
     #brand {
       display: flex;
       align-items: center;
@@ -153,7 +151,6 @@
       text-shadow: 0 0 8px rgba(255,179,0,0.4);
     }
 
-    /* Color swatches */
     #swatches {
       display: flex;
       gap: 7px;
@@ -175,7 +172,6 @@
       box-shadow: 0 0 8px currentColor;
     }
 
-    /* Controls row */
     #controls {
       display: flex;
       align-items: center;
@@ -213,11 +209,18 @@
     }
 
     button:active { opacity: 0.7; }
+    button:disabled { cursor: default; opacity: 1; }
 
     #eraser-btn.active {
       border-color: var(--teal);
       color: var(--teal);
       box-shadow: 0 0 10px rgba(0,229,255,0.4);
+    }
+
+    #undo-btn.enabled {
+      border-color: var(--amber);
+      color: var(--amber);
+      box-shadow: 0 0 8px rgba(255,179,0,0.3);
     }
 
     #clear-btn:hover {
@@ -253,9 +256,7 @@
       justify-content: center;
     }
 
-    #modal-overlay.visible {
-      display: flex;
-    }
+    #modal-overlay.visible { display: flex; }
 
     #modal {
       background: #0a0a0a;
@@ -331,6 +332,7 @@
     <span id="size-label">SIZE</span>
     <input id="brush-size" type="range" min="1" max="40" value="6" />
     <button id="eraser-btn">ERASER</button>
+    <button id="undo-btn">UNDO</button>
     <button id="clear-btn">CLEAR</button>
     <input id="stamp-input" type="file" accept="image/*" style="display:none" />
     <button id="stamp-btn">STAMP</button>
@@ -361,8 +363,24 @@
   const ctx = canvas.getContext("2d");
   const wrapper = document.getElementById("canvas-wrapper");
 
-  const localHistory = [];
-  const imageCache = {};  // data URL → HTMLImageElement
+  // undoStack: array of actions. Each action is:
+  //   {type: "gesture", segments: [...stroke objects]}  — one drag gesture
+  //   {type: "stamp", data, x, y, w, h}                — one stamp placement
+  const undoStack = [];
+  let currentGesture = null;  // accumulates segments during a drag
+  const imageCache = {};      // data URL → HTMLImageElement
+
+  function flatHistory() {
+    const result = [];
+    for (const action of undoStack) {
+      if (action.type === "gesture") {
+        for (const seg of action.segments) result.push(seg);
+      } else if (action.type === "stamp") {
+        result.push(action);
+      }
+    }
+    return result;
+  }
 
   function replayStamp(s) {
     const draw = (img) => {
@@ -380,7 +398,7 @@
   }
 
   function replayHistory() {
-    for (const s of localHistory) {
+    for (const s of flatHistory()) {
       if (s.type === "stroke") {
         drawSegment(
           s.x0 * canvas.width,  s.y0 * canvas.height,
@@ -440,9 +458,28 @@
     }
   });
 
+  // ── Undo ──
+  const undoBtn = document.getElementById("undo-btn");
+
+  function updateUndoBtn() {
+    undoBtn.classList.toggle("enabled", undoStack.length > 0);
+  }
+
+  function performUndo() {
+    if (undoStack.length === 0) return;
+    undoStack.pop();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    replayHistory();
+    send({ type: "redraw", history: flatHistory() });
+    updateUndoBtn();
+  }
+
+  undoBtn.addEventListener("click", performUndo);
+
   // ── Clear ──
   document.getElementById("clear-btn").addEventListener("click", () => {
-    localHistory.length = 0;
+    undoStack.length = 0;
+    updateUndoBtn();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const duration = Math.round((Date.now() - sessionStart) / 1000);
     send({ type: "clear", name: "Anonymous", duration });
@@ -470,6 +507,7 @@
     if (stampOverlay.classList.contains("active")) return;
     drawing = true;
     prevX = x; prevY = y;
+    currentGesture = { type: "gesture", segments: [] };
   }
 
   function moveDraw(x, y) {
@@ -482,12 +520,20 @@
       x1: x    / canvas.width,   y1: y    / canvas.height,
     };
     drawSegment(prevX, prevY, x, y, color, size);
-    localHistory.push(stroke);
+    currentGesture.segments.push(stroke);
     send(stroke);
     prevX = x; prevY = y;
   }
 
-  function endDraw() { drawing = false; }
+  function endDraw() {
+    if (!drawing) return;
+    drawing = false;
+    if (currentGesture && currentGesture.segments.length > 0) {
+      undoStack.push(currentGesture);
+      updateUndoBtn();
+    }
+    currentGesture = null;
+  }
 
   // ── Mouse events ──
   canvas.addEventListener("mousedown", e => startDraw(e.offsetX, e.offsetY));
@@ -495,7 +541,7 @@
   canvas.addEventListener("mouseup", endDraw);
   canvas.addEventListener("mouseleave", endDraw);
 
-  // ── Touch events (passive:false to prevent scroll) ──
+  // ── Touch events ──
   function touchCoords(touch) {
     const rect = canvas.getBoundingClientRect();
     return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
@@ -551,7 +597,8 @@
   function submitDoodle() {
     const name = nameInput.value.trim() || "Anonymous";
     const duration = Math.round((Date.now() - sessionStart) / 1000);
-    localHistory.length = 0;
+    undoStack.length = 0;
+    updateUndoBtn();
     send({ type: "finish", name, duration });
     modalOverlay.classList.remove("visible");
     window.location.href = "/";
@@ -688,9 +735,10 @@
     const msg = { type: "stamp", data: stampData, x: nx, y: ny, w: nw, h: nh };
 
     const doDraw = (img) => {
-      imageCache[stampData] = img;
+      imageCache[msg.data] = img;
       ctx.drawImage(img, stampX * scaleX, stampY * scaleY, stampW * scaleX, stampH * scaleY);
-      localHistory.push(msg);
+      undoStack.push(msg);
+      updateUndoBtn();
       send(msg);
     };
 

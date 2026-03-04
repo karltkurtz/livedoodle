@@ -207,6 +207,9 @@ async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
                     name = str(message.get("name", "Anonymous")).strip() or "Anonymous"
                     duration = int(message.get("duration", 0))
                     await manager.end_session(websocket, name, duration, clear_display=False)
+                elif message["type"] == "redraw":
+                    manager.history = [m for m in message.get("history", []) if m.get("type") in ("stroke", "stamp")]
+                    await manager.broadcast_to_displays({"type": "sync", "history": manager.history})
                 elif message["type"] == "clear":
                     name = str(message.get("name", "Anonymous")).strip() or "Anonymous"
                     duration = int(message.get("duration", 0))
