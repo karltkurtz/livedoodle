@@ -147,6 +147,14 @@ sudo systemctl start livedoodle
 
 Logs: `sudo journalctl -u livedoodle -f`
 
+## Known Issues
+
+### Stamp not appearing on Pi display
+Stamp feature works on draw page (mobile) — image is placed on the draw canvas correctly. But the stamp does not appear on the Pi display (`/display`). Likely causes:
+- WebSocket message is too large and silently dropped (Cloudflare WebSocket frame limit, or Starlette `receive_text` default max size)
+- Silent WS send failure: `send()` in draw.html drops the message if `ws.readyState !== OPEN`, with no retry
+- Investigate by logging received message types in display.html or checking server-side relay
+
 ## Planned Features
 
 ### 1. Visitor Count + Geolocation
