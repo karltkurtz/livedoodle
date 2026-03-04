@@ -491,6 +491,7 @@
     localHistory.length = 0;
     send({ type: "finish", name, duration });
     modalOverlay.classList.remove("visible");
+    window.location.href = "/";
   }
 
   document.getElementById("submit-btn").addEventListener("click", submitDoodle);

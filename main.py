@@ -124,7 +124,7 @@ class ConnectionManager:
         if message["type"] == "stroke":
             self.history.append(message)
 
-    async def end_session(self, websocket: WebSocket, name: str, duration: int):
+    async def end_session(self, websocket: WebSocket, name: str, duration: int, clear_display: bool = True):
         if not self.history:
             return
         strokes = list(self.history)
@@ -146,7 +146,8 @@ class ConnectionManager:
         _save_artwork(entries)
 
         self.history.clear()
-        await self.broadcast_to_displays({"type": "clear"})
+        if clear_display:
+            await self.broadcast_to_displays({"type": "clear"})
 
     async def broadcast_to_displays(self, message: dict):
         dead = []
@@ -198,15 +199,17 @@ async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
             message = json.loads(data)
             if role == "draw":
                 if message["type"] == "stroke":
+                    if not manager.history:
+                        await manager.broadcast_to_displays({"type": "clear"})
                     manager.update_history(message)
                     await manager.broadcast_to_displays(message)
                 elif message["type"] == "finish":
                     name = str(message.get("name", "Anonymous")).strip() or "Anonymous"
                     duration = int(message.get("duration", 0))
-                    await manager.end_session(websocket, name, duration)
+                    await manager.end_session(websocket, name, duration, clear_display=False)
                 elif message["type"] == "clear":
                     name = str(message.get("name", "Anonymous")).strip() or "Anonymous"
                     duration = int(message.get("duration", 0))
-                    await manager.end_session(websocket, name, duration)
+                    await manager.end_session(websocket, name, duration, clear_display=True)
     except WebSocketDisconnect:
         manager.disconnect(websocket, role)
