@@ -5,131 +5,90 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LiveDoodle</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Paytone+One&family=Nunito:wght@700;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --y: #f9e000;
+      --c: #00e5ff;
+      --m: #ff003c;
+      --bg: #06060e;
+    }
+
     html, body {
       width: 100%; min-height: 100%;
-      background: #0e0e14;
-      font-family: 'Nunito', sans-serif;
+      font-family: 'Barlow Condensed', sans-serif;
+      background: var(--bg);
+      color: #8888aa;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 28px;
-      padding: 32px 20px;
-      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* Animated background blobs */
-    .blob {
+    /* Scanlines */
+    body::before {
+      content: '';
       position: fixed;
-      border-radius: 50%;
-      filter: blur(80px);
-      opacity: 0.18;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.07) 3px,
+        rgba(0,0,0,0.07) 4px
+      );
       pointer-events: none;
-      z-index: 0;
-      animation: float 8s ease-in-out infinite;
-    }
-    .blob-1 { width: 400px; height: 400px; background: #ff3cac; top: -100px; left: -100px; animation-delay: 0s; }
-    .blob-2 { width: 300px; height: 300px; background: #40e0d0; bottom: -80px; right: -80px; animation-delay: -3s; }
-    .blob-3 { width: 250px; height: 250px; background: #f9a825; top: 40%; left: 60%; animation-delay: -5s; }
-
-    @keyframes float {
-      0%, 100% { transform: translate(0, 0) scale(1); }
-      33%       { transform: translate(20px, -20px) scale(1.05); }
-      66%       { transform: translate(-15px, 15px) scale(0.97); }
+      z-index: 999;
     }
 
-    /* Everything above the blobs */
-    #content {
+    #page {
       position: relative;
       z-index: 1;
+      width: 100%;
+      max-width: 540px;
+      padding: 44px 20px 38px;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 28px;
-      width: 100%;
+      gap: 20px;
     }
 
-    /* Title */
-    #title {
+    /* Meta row */
+    #meta {
       display: flex;
       align-items: center;
-      gap: 12px;
-      user-select: none;
+      justify-content: space-between;
     }
 
-    #title h1 {
-      font-family: 'Paytone One', sans-serif;
-      font-size: clamp(32px, 8vw, 64px);
-      background: linear-gradient(135deg, #ff3cac 0%, #ff8c42 50%, #ffe66d 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      line-height: 1;
+    #wordmark {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--c);
+      opacity: 0.6;
     }
 
-    #dot {
-      width: 12px; height: 12px;
-      border-radius: 50%;
-      background: #ff3cac;
-      box-shadow: 0 0 0 3px rgba(255, 60, 172, 0.25);
-      animation: pulse 1.8s ease-in-out infinite;
-      flex-shrink: 0;
-    }
-
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 0 3px rgba(255, 60, 172, 0.25); }
-      50%       { box-shadow: 0 0 0 8px rgba(255, 60, 172, 0); }
-    }
-
-    /* Stream */
-    #stream-wrapper {
-      width: 100%;
-      max-width: 580px;
-      aspect-ratio: 4/3;
-      border-radius: 20px;
-      overflow: hidden;
-      position: relative;
-      background: linear-gradient(#000, #000) padding-box,
-                  linear-gradient(135deg, #ff3cac, #ff8c42, #ffe66d) border-box;
-      border: 3px solid transparent;
-      box-shadow:
-        0 20px 60px rgba(0,0,0,0.6),
-        0 0 30px rgba(255, 60, 172, 0.25);
-    }
-
-    #stream {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      display: block;
-    }
-
-    /* Live chip */
-    #live-chip {
-      position: absolute;
-      top: 12px;
-      left: 12px;
+    #live-badge {
       display: flex;
       align-items: center;
       gap: 6px;
-      background: rgba(0,0,0,0.6);
-      backdrop-filter: blur(6px);
-      border-radius: 999px;
-      padding: 5px 10px;
-      font-size: 11px;
-      font-weight: 900;
-      color: #fff;
-      letter-spacing: 0.08em;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      color: var(--m);
+      border: 1px solid rgba(255,0,60,0.45);
+      padding: 4px 10px;
+      clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
     }
 
     #live-dot {
-      width: 7px; height: 7px;
+      width: 5px; height: 5px;
       border-radius: 50%;
-      background: #ff3c3c;
+      background: var(--m);
+      box-shadow: 0 0 6px var(--m);
       animation: blink 1s step-end infinite;
     }
 
@@ -138,61 +97,198 @@
       50%       { opacity: 0; }
     }
 
-    /* Draw button */
-    #draw-btn {
+    /* Hero */
+    #hero { display: flex; flex-direction: column; gap: 10px; }
+
+    h1 {
+      font-size: clamp(62px, 16vw, 104px);
+      font-weight: 900;
+      letter-spacing: -0.01em;
+      line-height: 0.88;
+      text-transform: uppercase;
+      color: var(--y);
+      text-shadow:
+        0 0 24px rgba(249,224,0,0.35),
+        0 0 72px rgba(249,224,0,0.12);
+    }
+
+    h1 .accent {
       display: block;
-      padding: 18px 56px;
-      background: linear-gradient(135deg, #ff3cac, #ff8c42);
-      color: #fff;
-      font-family: 'Paytone One', sans-serif;
-      font-size: clamp(18px, 4vw, 26px);
-      letter-spacing: 0.05em;
+      color: transparent;
+      -webkit-text-stroke: 2px var(--c);
+      text-shadow:
+        0 0 20px rgba(0,229,255,0.35),
+        0 0 56px rgba(0,229,255,0.12);
+    }
+
+    #desc {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      color: #252538;
+      text-transform: uppercase;
+      line-height: 1.6;
+    }
+
+    /* Thin cyan rule */
+    .rule {
+      height: 1px;
+      background: linear-gradient(90deg, rgba(0,229,255,0.35), transparent);
+    }
+
+    /* Stream with corner brackets */
+    #stream-frame {
+      position: relative;
+      width: 100%;
+      padding: 4px;
+    }
+
+    /* top-left, top-right brackets via #stream-frame and #stream-inner */
+    #stream-frame::before,
+    #stream-frame::after,
+    #stream-inner::before,
+    #stream-inner::after {
+      content: '';
+      position: absolute;
+      width: 14px; height: 14px;
+      border: 2px solid var(--c);
+      border-style: solid;
+      z-index: 3;
+      box-shadow: 0 0 6px rgba(0,229,255,0.3);
+    }
+
+    #stream-frame::before { top: 0;   left: 0;   border-width: 2px 0 0 2px; }
+    #stream-frame::after  { top: 0;   right: 0;  border-width: 2px 2px 0 0; }
+    #stream-inner::before { bottom: 0; left: 0;  border-width: 0 0 2px 2px; }
+    #stream-inner::after  { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+
+    #stream-inner {
+      position: relative;
+      width: 100%;
+    }
+
+    #stream-wrapper {
+      width: 100%;
+      aspect-ratio: 4/3;
+      background: #03030b;
+      border: 1px solid #0e0e20;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Moving horizontal scan line across the feed */
+    #stream-wrapper::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(0,229,255,0.5), transparent);
+      animation: scanline 3.5s linear infinite;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    @keyframes scanline {
+      0%   { top: -2px; }
+      100% { top: 100%; }
+    }
+
+    #stream {
+      width: 100%; height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    #feed-label {
+      position: absolute;
+      bottom: 8px; right: 10px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 8px;
+      letter-spacing: 0.15em;
+      color: var(--c);
+      opacity: 0.35;
+      z-index: 3;
+    }
+
+    /* Actions */
+    #actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    #draw-btn {
+      flex: 1;
+      padding: 15px 20px;
+      background: var(--y);
+      color: #000;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
       text-decoration: none;
-      border-radius: 999px;
-      box-shadow: 0 8px 30px rgba(255, 60, 172, 0.45);
-      transition: transform 0.15s, box-shadow 0.15s;
+      text-align: center;
+      clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+      transition: background 0.1s, box-shadow 0.1s;
+      box-shadow: 0 0 28px rgba(249,224,0,0.25);
     }
 
     #draw-btn:hover {
-      transform: translateY(-3px) scale(1.03);
-      box-shadow: 0 14px 40px rgba(255, 60, 172, 0.55);
+      background: #fff;
+      box-shadow: 0 0 44px rgba(249,224,0,0.5);
     }
 
-    #draw-btn:active {
-      transform: translateY(1px) scale(0.98);
-      box-shadow: 0 4px 16px rgba(255, 60, 172, 0.35);
+    #draw-btn:active { opacity: 0.88; }
+
+    #hint {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 9px;
+      color: #18182a;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      line-height: 1.9;
+      flex-shrink: 0;
+      text-align: right;
     }
   </style>
 </head>
 <body>
+<div id="page">
 
-<div class="blob blob-1"></div>
-<div class="blob blob-2"></div>
-<div class="blob blob-3"></div>
-
-<div id="content">
-  <div id="title">
-    <div id="dot"></div>
-    <h1>LiveDoodle</h1>
-  </div>
-
-  <div id="stream-wrapper">
-    <img id="stream" src="/snapshot" alt="Live feed" />
-    <div id="live-chip">
+  <div id="meta">
+    <span id="wordmark">LiveDoodle</span>
+    <div id="live-badge">
       <div id="live-dot"></div>
       LIVE
     </div>
   </div>
 
-  <a id="draw-btn" href="/draw">DRAW!</a>
-</div>
+  <div id="hero">
+    <h1>Draw.<br><span class="accent">Live.</span></h1>
+    <p id="desc">// real strokes &middot; real screen &middot; no signup</p>
+  </div>
 
+  <div class="rule"></div>
+
+  <div id="stream-frame">
+    <div id="stream-inner">
+      <div id="stream-wrapper">
+        <img id="stream" src="/snapshot" alt="" />
+        <span id="feed-label">FEED_01 // LIVE</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="actions">
+    <a id="draw-btn" href="/draw">DRAW!</a>
+    <p id="hint">renders on a<br>7" screen in<br>someone's garage</p>
+  </div>
+
+</div>
 <script>
   const img = document.getElementById("stream");
-  setInterval(() => {
-    img.src = "/snapshot?" + Date.now();
-  }, 100);
+  setInterval(() => { img.src = "/snapshot?" + Date.now(); }, 100);
 </script>
-
 </body>
 </html>

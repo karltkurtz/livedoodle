@@ -55,8 +55,32 @@
     #brand {
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: space-between;
       user-select: none;
+    }
+
+    #brand-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #timer {
+      font-family: 'Nunito', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.05em;
+    }
+
+    #timer.urgent {
+      color: #ff3cac;
+      animation: timer-pulse 0.6s ease-in-out infinite alternate;
+    }
+
+    @keyframes timer-pulse {
+      from { opacity: 1; }
+      to   { opacity: 0.4; }
     }
 
     #dot {
@@ -172,9 +196,12 @@
 
 <div id="toolbar">
   <div id="brand">
-    <div id="dot"></div>
-    <span id="brand-live">Live</span>
-    <span id="brand-doodle">Doodle</span>
+    <div id="brand-left">
+      <div id="dot"></div>
+      <span id="brand-live">Live</span>
+      <span id="brand-doodle">Doodle</span>
+    </div>
+    <span id="timer">5:00</span>
   </div>
 
   <div id="swatches"></div>
@@ -331,6 +358,23 @@
   }
 
   connect();
+
+  // ── Session timer (5 minutes) ──
+  const SESSION_MS = 5 * 60 * 1000;
+  const deadline = Date.now() + SESSION_MS;
+  const timerEl = document.getElementById("timer");
+
+  function updateTimer() {
+    const remaining = Math.max(0, deadline - Date.now());
+    const mins = Math.floor(remaining / 60000);
+    const secs = Math.floor((remaining % 60000) / 1000);
+    timerEl.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
+    if (remaining <= 30000) timerEl.classList.add("urgent");
+    if (remaining === 0) window.location.href = "/";
+  }
+
+  updateTimer();
+  setInterval(updateTimer, 1000);
 </script>
 </body>
 </html>
