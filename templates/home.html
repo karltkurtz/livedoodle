@@ -39,8 +39,9 @@
 
     /* Title */
     #title {
-      text-align: center;
-      line-height: 1.6;
+      display: flex;
+      align-items: center;
+      gap: 14px;
       user-select: none;
     }
 
@@ -54,17 +55,6 @@
       font-size: clamp(20px, 5vw, 42px);
       color: #00ffcc;
       text-shadow: 0 0 8px #00ffcc, 0 0 24px #00ffcc88;
-    }
-
-    /* Live badge */
-    #live-badge {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 10px;
-      color: #ff3c3c;
-      text-shadow: 0 0 6px #ff3c3c;
-      letter-spacing: 0.15em;
     }
 
     #dot {
@@ -143,12 +133,8 @@
 <body>
 
 <div id="title">
-  <span class="live">LIVE</span><span class="doodle">DOODLE</span>
-</div>
-
-<div id="live-badge">
   <div id="dot"></div>
-  ON AIR
+  <span class="live">Live</span><span class="doodle">Doodle</span>
 </div>
 
 <div id="stream-wrapper">
