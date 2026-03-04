@@ -114,6 +114,6 @@ Contents:
 @xset s off
 @xset -dpms
 @xset s noblank
-@chromium-browser --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble http://localhost:8000/display
+@chromium --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble http://localhost:8000/display
 ```
 
