@@ -182,6 +182,74 @@
       color: var(--coral);
       box-shadow: 0 0 10px rgba(255,74,42,0.35);
     }
+
+    #done-btn {
+      border-color: var(--green);
+      color: var(--green);
+      box-shadow: 0 0 8px rgba(57,255,20,0.3);
+    }
+
+    #done-btn:hover {
+      box-shadow: 0 0 14px rgba(57,255,20,0.55);
+    }
+
+    /* ── Name prompt modal ── */
+    #modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #modal-overlay.visible {
+      display: flex;
+    }
+
+    #modal {
+      background: #0a0a0a;
+      border: 1px solid var(--green);
+      box-shadow: 0 0 24px rgba(57,255,20,0.25);
+      padding: 24px 20px 20px;
+      width: min(320px, 90vw);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    #modal-title {
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--green);
+      text-shadow: 0 0 8px rgba(57,255,20,0.4);
+    }
+
+    #name-input {
+      background: #111;
+      border: 1px solid #333;
+      color: #eee;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 14px;
+      padding: 8px 10px;
+      outline: none;
+      width: 100%;
+      letter-spacing: 0.05em;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    #name-input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 8px rgba(57,255,20,0.25);
+    }
+
+    #modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
   </style>
 </head>
 <body>
@@ -204,6 +272,18 @@
     <input id="brush-size" type="range" min="1" max="40" value="6" />
     <button id="eraser-btn">ERASER</button>
     <button id="clear-btn">CLEAR</button>
+    <button id="done-btn">DONE</button>
+  </div>
+</div>
+
+<div id="modal-overlay">
+  <div id="modal">
+    <div id="modal-title">Sign your doodle</div>
+    <input id="name-input" type="text" maxlength="40" placeholder="Anonymous" autocomplete="off" spellcheck="false" />
+    <div id="modal-actions">
+      <button id="cancel-btn">CANCEL</button>
+      <button id="submit-btn" style="border-color:var(--green);color:var(--green);box-shadow:0 0 8px rgba(57,255,20,0.3);">SUBMIT</button>
+    </div>
   </div>
 </div>
 
@@ -268,7 +348,8 @@
   // ── Clear ──
   document.getElementById("clear-btn").addEventListener("click", () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    send({ type: "clear" });
+    const duration = Math.round((Date.now() - sessionStart) / 1000);
+    send({ type: "clear", name: "Anonymous", duration });
   });
 
   // ── Drawing helpers ──
@@ -351,6 +432,35 @@
   }
 
   connect();
+
+  // ── DONE / name prompt ──
+  const sessionStart = Date.now();
+  const modalOverlay = document.getElementById("modal-overlay");
+  const nameInput    = document.getElementById("name-input");
+
+  document.getElementById("done-btn").addEventListener("click", () => {
+    nameInput.value = "";
+    modalOverlay.classList.add("visible");
+    setTimeout(() => nameInput.focus(), 50);
+  });
+
+  document.getElementById("cancel-btn").addEventListener("click", () => {
+    modalOverlay.classList.remove("visible");
+  });
+
+  function submitDoodle() {
+    const name = nameInput.value.trim() || "Anonymous";
+    const duration = Math.round((Date.now() - sessionStart) / 1000);
+    send({ type: "finish", name, duration });
+    modalOverlay.classList.remove("visible");
+  }
+
+  document.getElementById("submit-btn").addEventListener("click", submitDoodle);
+
+  nameInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") submitDoodle();
+    if (e.key === "Escape") modalOverlay.classList.remove("visible");
+  });
 
   // ── Session timer (5 minutes) ──
   const SESSION_MS = 5 * 60 * 1000;
