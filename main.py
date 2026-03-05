@@ -313,6 +313,29 @@ async def admin_set_away(request: Request):
     return JSONResponse({"home": False})
 
 
+CAMERA_CONTROL_URL = "http://10.0.0.8:8080/controls"
+
+
+@app.post("/admin/camera-control")
+async def admin_camera_control(request: Request):
+    body = await request.json()
+    if not _check_password(body):
+        return JSONResponse({"error": "wrong password"}, status_code=401)
+    controls = {k: v for k, v in body.items() if k != "password"}
+    if not controls:
+        return JSONResponse({"error": "no controls"}, status_code=400)
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            r = await client.post(
+                CAMERA_CONTROL_URL,
+                content=json.dumps(controls),
+                headers={"Content-Type": "application/json"},
+            )
+            return JSONResponse({"ok": r.status_code == 200, "status": r.status_code})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=502)
+
+
 @app.post("/admin/reload-display")
 async def admin_reload_display(request: Request):
     body = await request.json()

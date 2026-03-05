@@ -324,6 +324,74 @@
       min-height: 12px;
       margin-top: 5px;
     }
+
+    /* Camera controls */
+    #cam-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .cam-ctrl-row {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .cam-ctrl-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .cam-ctrl-label {
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #555;
+    }
+
+    .cam-ctrl-val {
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      color: var(--amber);
+    }
+
+    .cam-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 2px;
+      background: #222;
+      outline: none;
+      cursor: pointer;
+    }
+    .cam-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      background: var(--amber);
+      cursor: pointer;
+      border-radius: 0;
+      box-shadow: 0 0 6px rgba(255,179,0,0.5);
+    }
+    .cam-slider::-moz-range-thumb {
+      width: 12px;
+      height: 12px;
+      background: var(--amber);
+      cursor: pointer;
+      border-radius: 0;
+      border: none;
+    }
+
+    #cam-ctrl-status {
+      font-size: 8px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--green);
+      min-height: 12px;
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body>
@@ -357,6 +425,11 @@
       <div class="section-label">// Camera</div>
       <img id="camera-preview" src="" alt="camera feed" />
       <div id="camera-status" class="offline">Checking...</div>
+      <div id="cam-controls"></div>
+      <div style="margin-top:10px;">
+        <button id="cam-auto-btn" class="clear-btn" style="border-color:var(--teal);color:var(--teal);width:100%;padding:10px;">AUTO RESET</button>
+      </div>
+      <div id="cam-ctrl-status"></div>
     </div>
 
     <div class="rule"></div>
@@ -416,6 +489,7 @@
         document.getElementById('panel').classList.add('visible');
         startCamera();
         fetchPresence();
+        buildCamControls();
       } else {
         status.textContent = 'Wrong password.';
         pw = '';
@@ -520,6 +594,103 @@
     clearData('/admin/clear-guestbook', 'status-guestbook'));
   document.getElementById('clear-artwork').addEventListener('click', () =>
     clearData('/admin/clear-artwork', 'status-artwork'));
+
+  // Camera controls (keys match stream.py's /controls API)
+  const CAM_CONTROLS = [
+    { id: 'brightness', label: 'BRIGHTNESS',    min: -1.0, max: 1.0,    step: 0.05, def: 0.0   },
+    { id: 'contrast',   label: 'CONTRAST',      min: 0.0,  max: 4.0,    step: 0.05, def: 1.0   },
+    { id: 'saturation', label: 'SATURATION',    min: 0.0,  max: 4.0,    step: 0.05, def: 1.0   },
+    { id: 'exposure',   label: 'EXPOSURE (μs)', min: 1000, max: 200000, step: 1000, def: 20000 },
+    { id: 'gain',       label: 'GAIN',          min: 1.0,  max: 10.0,   step: 0.1,  def: 1.0   },
+  ];
+
+  function buildCamControls() {
+    const container = document.getElementById('cam-controls');
+    for (const ctrl of CAM_CONTROLS) {
+      const row = document.createElement('div');
+      row.className = 'cam-ctrl-row';
+
+      const header = document.createElement('div');
+      header.className = 'cam-ctrl-header';
+
+      const label = document.createElement('span');
+      label.className = 'cam-ctrl-label';
+      label.textContent = ctrl.label;
+
+      const valEl = document.createElement('span');
+      valEl.className = 'cam-ctrl-val';
+      valEl.id = 'camval-' + ctrl.id;
+      valEl.textContent = ctrl.def;
+
+      header.appendChild(label);
+      header.appendChild(valEl);
+
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.className = 'cam-slider';
+      slider.min = ctrl.min;
+      slider.max = ctrl.max;
+      slider.step = ctrl.step;
+      slider.value = ctrl.def;
+      slider.id = 'camslider-' + ctrl.id;
+
+      slider.addEventListener('input', () => {
+        const val = parseFloat(slider.value);
+        valEl.textContent = ctrl.id === 'ExposureTime' ? Math.round(val) : val.toFixed(ctrl.step < 1 ? 2 : 0);
+        debouncedSendControl(ctrl.id, val);
+      });
+
+      row.appendChild(header);
+      row.appendChild(slider);
+      container.appendChild(row);
+    }
+  }
+
+  let camCtrlTimer = null;
+  const pendingControls = {};
+
+  function debouncedSendControl(id, val) {
+    pendingControls[id] = val;
+    clearTimeout(camCtrlTimer);
+    camCtrlTimer = setTimeout(flushCamControls, 120);
+  }
+
+  // Wire AUTO RESET button — sends {auto: true} to fully recreate camera (re-enables AE)
+  document.getElementById('cam-auto-btn').addEventListener('click', async () => {
+    const statusEl = document.getElementById('cam-ctrl-status');
+    statusEl.textContent = 'Resetting...';
+    try {
+      const r = await fetch('/admin/camera-control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw, auto: true }),
+      });
+      const data = await r.json();
+      statusEl.textContent = data.ok ? 'Auto reset. Allow ~2s for AE to settle.' : ('Error: ' + (data.error || r.status));
+    } catch (_) {
+      statusEl.textContent = 'Network error.';
+    }
+    setTimeout(() => statusEl.textContent = '', 4000);
+  });
+
+  async function flushCamControls() {
+    const payload = { password: pw, ...pendingControls };
+    Object.keys(pendingControls).forEach(k => delete pendingControls[k]);
+    const statusEl = document.getElementById('cam-ctrl-status');
+    try {
+      const r = await fetch('/admin/camera-control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      statusEl.textContent = data.ok ? 'Applied.' : ('Error: ' + (data.error || r.status));
+    } catch (_) {
+      statusEl.textContent = 'Network error.';
+    }
+    setTimeout(() => statusEl.textContent = '', 2000);
+  }
+
 </script>
 
 <script>
