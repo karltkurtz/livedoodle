@@ -116,8 +116,12 @@
 
     #timer-bar {
       text-align: center;
-      padding: 6px 0 2px;
+      padding: 6px 12px 2px;
       background: #0a0a0a;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      color: #555;
+      text-transform: uppercase;
     }
 
     #timer {
@@ -379,6 +383,8 @@
 </head>
 <body>
 
+<div id="timer-bar">Your art will automatically submit in &mdash; <span id="timer">5:00</span></div>
+
 <div id="canvas-area">
   <div id="canvas-wrapper">
     <canvas id="canvas"></canvas>
@@ -391,8 +397,6 @@
     </div>
   </div>
 </div>
-
-<div id="timer-bar"><span id="timer">5:00</span></div>
 
 <div id="toolbar">
   <div id="brand">
