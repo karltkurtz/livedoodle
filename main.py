@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 CAMERA_URL = "http://10.0.0.8:8080/?action=snapshot"
 POLL_INTERVAL = 0.1  # seconds
 ARTWORK_FILE = "artwork_history.json"
-MAX_ARTWORK = 50
+MAX_ARTWORK = 25
 GUESTBOOK_FILE = "guestbook.json"
 MAX_GUESTBOOK = 200
 
@@ -227,6 +227,11 @@ async def snapshot():
     if _latest_frame is None:
         return Response(status_code=503)
     return Response(content=_latest_frame, media_type="image/jpeg")
+
+
+@app.get("/artwork", response_class=HTMLResponse)
+async def artwork_page(request: Request):
+    return templates.TemplateResponse("artwork.html", {"request": request})
 
 
 @app.get("/artwork/entries")
