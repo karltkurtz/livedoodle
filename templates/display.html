@@ -37,11 +37,11 @@
   }
 
   function drawStamp(msg, img) {
-    ctx.drawImage(img,
-      (msg.x - msg.w / 2) * canvas.width,
-      (msg.y - msg.h / 2) * canvas.height,
-      msg.w * canvas.width,
-      msg.h * canvas.height);
+    ctx.save();
+    ctx.translate(msg.x * canvas.width, msg.y * canvas.height);
+    if (msg.r) ctx.rotate(msg.r);
+    ctx.drawImage(img, -msg.w * canvas.width / 2, -msg.h * canvas.height / 2, msg.w * canvas.width, msg.h * canvas.height);
+    ctx.restore();
   }
 
   function redraw() {

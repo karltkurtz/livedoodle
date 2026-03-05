@@ -60,24 +60,69 @@
       position: absolute;
       inset: 0;
       z-index: 10;
+      touch-action: none;
     }
 
     #stamp-overlay.active { display: block; }
 
-    #stamp-img {
+    #stamp-box {
       position: absolute;
       cursor: move;
-      touch-action: none;
       user-select: none;
+      transform-origin: 50% 50%;
+    }
+
+    #stamp-box img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
       -webkit-user-drag: none;
     }
 
-    #stamp-controls {
+    .s-handle {
       position: absolute;
-      bottom: 8px;
+      width: 18px;
+      height: 18px;
+      background: #0a0a0a;
+      border: 2px solid var(--amber);
+      box-shadow: 0 0 6px rgba(255,179,0,0.5);
+      cursor: pointer;
+    }
+
+    #s-tl { top: -9px; left: -9px; }
+    #s-tr { top: -9px; right: -9px; }
+    #s-bl { bottom: -9px; left: -9px; }
+    #s-br { bottom: -9px; right: -9px; }
+
+    #s-rot-line {
+      position: absolute;
+      width: 1px;
+      background: rgba(191,95,255,0.4);
       left: 50%;
       transform: translateX(-50%);
-      display: flex;
+      top: -42px;
+      height: 42px;
+      pointer-events: none;
+    }
+
+    #s-rot {
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      background: #0a0a0a;
+      border: 2px solid var(--purple);
+      border-radius: 50%;
+      box-shadow: 0 0 8px rgba(191,95,255,0.5);
+      left: 50%;
+      top: -64px;
+      transform: translateX(-50%);
+      cursor: grab;
+    }
+
+    #stamp-controls {
+      display: none;
+      justify-content: center;
       gap: 8px;
     }
 
@@ -389,16 +434,24 @@
   <div id="canvas-wrapper">
     <canvas id="canvas"></canvas>
     <div id="stamp-overlay">
-      <img id="stamp-img" draggable="false" alt="" />
-      <div id="stamp-controls">
-        <button id="discard-stamp-btn" style="border-color:var(--coral);color:var(--coral);box-shadow:0 0 8px rgba(255,74,42,0.3);">REMOVE</button>
-        <button id="place-stamp-btn" style="border-color:var(--green);color:var(--green);box-shadow:0 0 8px rgba(57,255,20,0.3);">KEEP</button>
+      <div id="stamp-box">
+        <img id="stamp-img" draggable="false" alt="" />
+        <div class="s-handle" id="s-tl"></div>
+        <div class="s-handle" id="s-tr"></div>
+        <div class="s-handle" id="s-bl"></div>
+        <div class="s-handle" id="s-br"></div>
+        <div id="s-rot-line"></div>
+        <div id="s-rot"></div>
       </div>
     </div>
   </div>
 </div>
 
 <div id="toolbar">
+  <div id="stamp-controls">
+    <button id="discard-stamp-btn" style="border-color:var(--coral);color:var(--coral);box-shadow:0 0 8px rgba(255,74,42,0.3);">REMOVE</button>
+    <button id="place-stamp-btn" style="border-color:var(--green);color:var(--green);box-shadow:0 0 8px rgba(57,255,20,0.3);">KEEP</button>
+  </div>
   <div id="brand">
     <div id="brand-left">
       <div id="dot"></div>
@@ -485,9 +538,11 @@
 
   function replayStamp(s) {
     const draw = (img) => {
-      ctx.drawImage(img,
-        (s.x - s.w / 2) * canvas.width, (s.y - s.h / 2) * canvas.height,
-        s.w * canvas.width, s.h * canvas.height);
+      ctx.save();
+      ctx.translate(s.x * canvas.width, s.y * canvas.height);
+      if (s.r) ctx.rotate(s.r);
+      ctx.drawImage(img, -s.w * canvas.width / 2, -s.h * canvas.height / 2, s.w * canvas.width, s.h * canvas.height);
+      ctx.restore();
     };
     if (imageCache[s.data]) {
       draw(imageCache[s.data]);
@@ -603,7 +658,8 @@
     ctx.stroke();
   }
 
-  const stampOverlay = document.getElementById("stamp-overlay");
+  const stampOverlay  = document.getElementById("stamp-overlay");
+  const stampControls = document.getElementById("stamp-controls");
 
   function startDraw(x, y) {
     if (stampOverlay.classList.contains("active")) return;
@@ -743,9 +799,11 @@
   const stampInput = document.getElementById("stamp-input");
   const stampBtn   = document.getElementById("stamp-btn");
   const stampImg   = document.getElementById("stamp-img");
+  const stampBox   = document.getElementById("stamp-box");
 
   let stampData = null;
-  let stampX = 0, stampY = 0, stampW = 0, stampH = 0;
+  let stampCX = 0, stampCY = 0, stampW = 0, stampH = 0, stampR = 0;
+  let _activeOp = null;
 
   stampBtn.addEventListener("click", () => stampInput.click());
 
@@ -760,10 +818,12 @@
       const ch = canvas.offsetHeight;
       stampW = cw * 0.4;
       stampH = stampW / aspectRatio;
-      stampX = (cw - stampW) / 2;
-      stampY = (ch - stampH) / 2;
+      stampCX = cw / 2;
+      stampCY = ch / 2;
+      stampR = 0;
       updateStampPos();
       stampOverlay.classList.add("active");
+      stampControls.style.display = "flex";
     });
   });
 
@@ -786,67 +846,61 @@
   }
 
   function updateStampPos() {
-    stampImg.style.left   = stampX + "px";
-    stampImg.style.top    = stampY + "px";
-    stampImg.style.width  = stampW + "px";
-    stampImg.style.height = stampH + "px";
+    stampBox.style.left      = (stampCX - stampW / 2) + "px";
+    stampBox.style.top       = (stampCY - stampH / 2) + "px";
+    stampBox.style.width     = stampW + "px";
+    stampBox.style.height    = stampH + "px";
+    stampBox.style.transform = `rotate(${stampR}rad)`;
   }
 
-  // ── Stamp drag + pinch ──
-  let _dragStart  = null;
-  let _pinchStart = null;
-
-  stampImg.addEventListener("touchstart", e => {
+  // ── Stamp interactions (move / scale / rotate) ──
+  stampOverlay.addEventListener("pointerdown", e => {
+    if (e.target.tagName === "BUTTON") return;
     e.preventDefault();
-    if (e.touches.length === 1) {
-      _pinchStart = null;
-      _dragStart = { cx: e.touches[0].clientX, cy: e.touches[0].clientY, sx: stampX, sy: stampY };
-    } else if (e.touches.length === 2) {
-      _dragStart = null;
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      _pinchStart = { dist: Math.hypot(dx, dy), sx: stampX, sy: stampY, sw: stampW, sh: stampH };
-    }
-  }, { passive: false });
+    stampOverlay.setPointerCapture(e.pointerId);
+    const rect = stampOverlay.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
 
-  stampImg.addEventListener("touchmove", e => {
-    e.preventDefault();
-    if (e.touches.length === 1 && _dragStart) {
-      stampX = _dragStart.sx + (e.touches[0].clientX - _dragStart.cx);
-      stampY = _dragStart.sy + (e.touches[0].clientY - _dragStart.cy);
-      updateStampPos();
-    } else if (e.touches.length === 2 && _pinchStart) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      const scale = Math.hypot(dx, dy) / _pinchStart.dist;
-      const cx = _pinchStart.sx + _pinchStart.sw / 2;
-      const cy = _pinchStart.sy + _pinchStart.sh / 2;
-      stampW = _pinchStart.sw * scale;
-      stampH = _pinchStart.sh * scale;
-      stampX = cx - stampW / 2;
-      stampY = cy - stampH / 2;
-      updateStampPos();
+    if (e.target.id === "s-rot") {
+      const startAngle = Math.atan2(py - stampCY, px - stampCX);
+      _activeOp = { type: "rotate", startR: stampR, startAngle, cx: stampCX, cy: stampCY };
+    } else if (e.target.classList.contains("s-handle")) {
+      _activeOp = { type: "scale", cx: stampCX, cy: stampCY, startW: stampW, startH: stampH };
+    } else if (e.target === stampBox) {
+      _activeOp = { type: "move", startCX: stampCX, startCY: stampCY, startPX: px, startPY: py };
     }
-  }, { passive: false });
-
-  stampImg.addEventListener("mousedown", e => {
-    _dragStart = { cx: e.clientX, cy: e.clientY, sx: stampX, sy: stampY };
-    const onMove = e => {
-      stampX = _dragStart.sx + (e.clientX - _dragStart.cx);
-      stampY = _dragStart.sy + (e.clientY - _dragStart.cy);
-      updateStampPos();
-    };
-    const onUp = () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      _dragStart = null;
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
   });
+
+  stampOverlay.addEventListener("pointermove", e => {
+    if (!_activeOp) return;
+    e.preventDefault();
+    const rect = stampOverlay.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+
+    if (_activeOp.type === "move") {
+      stampCX = _activeOp.startCX + (px - _activeOp.startPX);
+      stampCY = _activeOp.startCY + (py - _activeOp.startPY);
+    } else if (_activeOp.type === "scale") {
+      const origDist = Math.hypot(_activeOp.startW, _activeOp.startH) / 2;
+      const newDist  = Math.hypot(px - _activeOp.cx, py - _activeOp.cy);
+      const scale    = newDist / origDist;
+      stampW = Math.max(20, _activeOp.startW * scale);
+      stampH = Math.max(20, _activeOp.startH * scale);
+    } else if (_activeOp.type === "rotate") {
+      const angle = Math.atan2(py - _activeOp.cy, px - _activeOp.cx);
+      stampR = _activeOp.startR + (angle - _activeOp.startAngle);
+    }
+    updateStampPos();
+  });
+
+  stampOverlay.addEventListener("pointerup",     () => { _activeOp = null; });
+  stampOverlay.addEventListener("pointercancel", () => { _activeOp = null; });
 
   document.getElementById("discard-stamp-btn").addEventListener("click", () => {
     stampOverlay.classList.remove("active");
+    stampControls.style.display = "none";
     stampData = null;
   });
 
@@ -854,17 +908,21 @@
     if (!stampData) return;
     const displayW = canvas.offsetWidth;
     const displayH = canvas.offsetHeight;
-    const scaleX = canvas.width / displayW;
-    const scaleY = canvas.height / displayH;
-    const nx = (stampX + stampW / 2) / displayW;
-    const ny = (stampY + stampH / 2) / displayH;
+    const nx = stampCX / displayW;
+    const ny = stampCY / displayH;
     const nw = stampW / displayW;
     const nh = stampH / displayH;
-    const msg = { type: "stamp", data: stampData, x: nx, y: ny, w: nw, h: nh };
+    const msg = { type: "stamp", data: stampData, x: nx, y: ny, w: nw, h: nh, r: stampR };
 
     const doDraw = (img) => {
       imageCache[msg.data] = img;
-      ctx.drawImage(img, stampX * scaleX, stampY * scaleY, stampW * scaleX, stampH * scaleY);
+      const scaleX = canvas.width / displayW;
+      const scaleY = canvas.height / displayH;
+      ctx.save();
+      ctx.translate(stampCX * scaleX, stampCY * scaleY);
+      ctx.rotate(stampR);
+      ctx.drawImage(img, -(stampW * scaleX) / 2, -(stampH * scaleY) / 2, stampW * scaleX, stampH * scaleY);
+      ctx.restore();
       undoStack.push(msg);
       updateUndoBtn();
       send(msg);
@@ -879,6 +937,7 @@
     }
 
     stampOverlay.classList.remove("active");
+    stampControls.style.display = "none";
     stampData = null;
   });
 

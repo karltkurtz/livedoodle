@@ -222,9 +222,11 @@
     }
 
     function drawStamp(s, img) {
-      ctx.drawImage(img,
-        (s.x - s.w / 2) * w, (s.y - s.h / 2) * h,
-        s.w * w, s.h * h);
+      ctx.save();
+      ctx.translate(s.x * w, s.y * h);
+      if (s.r) ctx.rotate(s.r);
+      ctx.drawImage(img, -s.w * w / 2, -s.h * h / 2, s.w * w, s.h * h);
+      ctx.restore();
     }
 
     for (const s of strokes) {
