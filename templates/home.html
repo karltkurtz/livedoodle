@@ -242,6 +242,25 @@
 
     #draw-btn:active { opacity: 0.7; }
 
+    #draw-btn.busy {
+      animation: none;
+      border-color: #2a2a2a;
+      color: #333;
+      box-shadow: none;
+      pointer-events: none;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      line-height: 1.5;
+    }
+
+    #draw-countdown {
+      display: block;
+      font-size: 22px;
+      letter-spacing: 0.05em;
+      color: #2a2a2a;
+      margin-top: 2px;
+    }
+
     #hint {
       font-size: 9px;
       color: #1e1e1e;
@@ -322,6 +341,51 @@
   // Snapshot refresh
   const img = document.getElementById("stream");
   setInterval(() => { img.src = "/snapshot?" + Date.now(); }, 100);
+
+  // Draw button availability + synced countdown
+  const drawBtn = document.getElementById("draw-btn");
+  const SESSION_MS = 5 * 60 * 1000;
+  let localDeadline = null;
+  let countdownInterval = null;
+
+  function updateDrawBtn(drawing, sessionElapsed) {
+    if (drawing && sessionElapsed !== null) {
+      localDeadline = Date.now() + (SESSION_MS - sessionElapsed * 1000);
+      if (!drawBtn.classList.contains("busy")) {
+        drawBtn.classList.add("busy");
+        drawBtn.innerHTML = 'SOMEONE IS DRAWING<br><span id="draw-countdown"></span>';
+        drawBtn.removeAttribute("href");
+      }
+      tickCountdown();
+      if (!countdownInterval) countdownInterval = setInterval(tickCountdown, 1000);
+    } else {
+      drawBtn.classList.remove("busy");
+      drawBtn.textContent = "DRAW!";
+      drawBtn.setAttribute("href", "/draw");
+      localDeadline = null;
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+    }
+  }
+
+  function tickCountdown() {
+    const el = document.getElementById("draw-countdown");
+    if (!el || localDeadline === null) return;
+    const remaining = Math.max(0, localDeadline - Date.now());
+    const mins = Math.floor(remaining / 60000);
+    const secs = Math.floor((remaining % 60000) / 1000);
+    el.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
+  }
+
+  async function pollStatus() {
+    try {
+      const r = await fetch("/status");
+      const { drawing, session_elapsed } = await r.json();
+      updateDrawBtn(drawing, session_elapsed);
+    } catch (_) {}
+  }
+  pollStatus();
+  setInterval(pollStatus, 2000);
 
   // Pixel starfield
   const sf = document.getElementById("starfield");

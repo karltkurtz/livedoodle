@@ -99,10 +99,13 @@ class ConnectionManager:
         self.display_clients: list[WebSocket] = []
         self.history: list[dict] = []
         self._client_ips: dict[int, str] = {}  # id(websocket) → ip
+        self.session_start: float | None = None
 
     async def connect(self, websocket: WebSocket, role: str):
         await websocket.accept()
         if role == "draw":
+            if not self.draw_clients:
+                self.session_start = time.time()
             self.draw_clients.append(websocket)
             ip = _get_ws_ip(websocket)
             self._client_ips[id(websocket)] = ip
@@ -121,6 +124,8 @@ class ConnectionManager:
         if role == "draw" and websocket in self.draw_clients:
             self.draw_clients.remove(websocket)
             self._client_ips.pop(id(websocket), None)
+            if not self.draw_clients:
+                self.session_start = None
         elif role == "display" and websocket in self.display_clients:
             self.display_clients.remove(websocket)
 
@@ -181,6 +186,13 @@ async def draw_page(request: Request):
 @app.get("/display", response_class=HTMLResponse)
 async def display_page(request: Request):
     return templates.TemplateResponse("display.html", {"request": request})
+
+
+@app.get("/status")
+async def status():
+    drawing = len(manager.draw_clients) > 0
+    elapsed = (time.time() - manager.session_start) if manager.session_start is not None else None
+    return JSONResponse({"drawing": drawing, "session_elapsed": elapsed})
 
 
 @app.get("/snapshot")
