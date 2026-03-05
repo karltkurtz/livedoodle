@@ -12,6 +12,8 @@ CAMERA_URL = "http://10.0.0.8:8080/?action=snapshot"
 POLL_INTERVAL = 0.1  # seconds
 ARTWORK_FILE = "artwork_history.json"
 MAX_ARTWORK = 50
+GUESTBOOK_FILE = "guestbook.json"
+MAX_GUESTBOOK = 200
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -28,6 +30,16 @@ def _get_ws_ip(websocket: WebSocket) -> str:
     if xff:
         return xff.split(",")[0].strip()
     return websocket.client.host if websocket.client else ""
+
+
+def _get_request_ip(request: Request) -> str:
+    cf = request.headers.get("cf-connecting-ip")
+    if cf:
+        return cf.strip()
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else ""
 
 
 def _is_private(ip: str) -> bool:
@@ -58,6 +70,21 @@ async def _lookup_geo(ip: str) -> str:
         pass
     _geo_cache[ip] = ""
     return ""
+
+
+def _load_guestbook() -> list:
+    if os.path.exists(GUESTBOOK_FILE):
+        try:
+            with open(GUESTBOOK_FILE) as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return []
+
+
+def _save_guestbook(entries: list):
+    with open(GUESTBOOK_FILE, "w") as f:
+        json.dump(entries, f)
 
 
 def _load_artwork() -> list:
@@ -205,6 +232,34 @@ async def snapshot():
 @app.get("/artwork/entries")
 async def artwork_entries():
     return JSONResponse(_load_artwork())
+
+
+@app.get("/guestbook", response_class=HTMLResponse)
+async def guestbook_page(request: Request):
+    return templates.TemplateResponse("guestbook.html", {"request": request})
+
+
+@app.get("/guestbook/entries")
+async def guestbook_entries():
+    return JSONResponse(_load_guestbook())
+
+
+@app.post("/guestbook/sign")
+async def guestbook_sign(request: Request):
+    body = await request.json()
+    name = str(body.get("name", "")).strip()[:50] or "Anonymous"
+    message = str(body.get("message", "")).strip()[:280]
+    if not message:
+        return JSONResponse({"error": "message required"}, status_code=400)
+    ip = _get_request_ip(request)
+    location = await _lookup_geo(ip)
+    entry = {"name": name, "message": message, "location": location, "time": time.time()}
+    entries = _load_guestbook()
+    entries.append(entry)
+    if len(entries) > MAX_GUESTBOOK:
+        entries = entries[-MAX_GUESTBOOK:]
+    _save_guestbook(entries)
+    return JSONResponse({"ok": True})
 
 
 @app.websocket("/ws")

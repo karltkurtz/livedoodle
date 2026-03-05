@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LiveDoodle // Guestbook</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --amber:  #ffb300;
+      --teal:   #00e5ff;
+      --coral:  #ff4a2a;
+      --green:  #39ff14;
+      --purple: #bf5fff;
+      --bg:     #0a0a0a;
+    }
+
+    html, body {
+      width: 100%; min-height: 100%;
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg);
+      color: #555;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.1) 3px,
+        rgba(0,0,0,0.1) 4px
+      );
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    #page {
+      width: 100%;
+      max-width: 540px;
+      padding: 44px 20px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    #meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    #wordmark {
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--teal);
+      opacity: 0.5;
+    }
+
+    #back {
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #333;
+      text-decoration: none;
+    }
+    #back:hover { color: #555; }
+
+    h1 {
+      font-size: clamp(36px, 10vw, 56px);
+      font-weight: normal;
+      letter-spacing: -0.01em;
+      line-height: 0.9;
+      text-transform: uppercase;
+      color: var(--purple);
+      text-shadow: 0 0 18px rgba(191,95,255,0.45), 0 0 54px rgba(191,95,255,0.1);
+    }
+
+    .rule {
+      height: 1px;
+      background: linear-gradient(90deg, rgba(191,95,255,0.25), transparent);
+    }
+
+    /* Form */
+    #form { display: flex; flex-direction: column; gap: 12px; }
+
+    label {
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #333;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    input[type="text"], textarea {
+      width: 100%;
+      background: #0d0d0d;
+      border: 1px solid #222;
+      color: #888;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+      padding: 10px 12px;
+      outline: none;
+      resize: none;
+      transition: border-color 0.15s;
+    }
+
+    input[type="text"]:focus, textarea:focus {
+      border-color: var(--purple);
+      box-shadow: 0 0 8px rgba(191,95,255,0.2);
+      color: #bbb;
+    }
+
+    textarea { height: 80px; line-height: 1.5; }
+
+    #sign-btn {
+      padding: 14px 20px;
+      background: var(--bg);
+      border: 2px solid var(--purple);
+      color: var(--purple);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 14px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 0 12px rgba(191,95,255,0.3);
+      transition: opacity 0.1s;
+    }
+    #sign-btn:active { opacity: 0.7; }
+    #sign-btn:disabled { border-color: #222; color: #333; box-shadow: none; cursor: default; }
+
+    #form-status {
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--green);
+      min-height: 14px;
+    }
+    #form-status.error { color: var(--coral); }
+
+    /* Entries */
+    #entries { display: flex; flex-direction: column; gap: 16px; }
+
+    .entry {
+      border-left: 2px solid #1a1a1a;
+      padding-left: 14px;
+    }
+
+    .entry-name {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--purple);
+      opacity: 0.8;
+    }
+
+    .entry-message {
+      font-size: 12px;
+      color: #555;
+      line-height: 1.6;
+      margin-top: 4px;
+      word-break: break-word;
+    }
+
+    .entry-meta {
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #252525;
+      margin-top: 5px;
+    }
+
+    #empty {
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #1e1e1e;
+    }
+
+    #loading {
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #222;
+    }
+  </style>
+</head>
+<body>
+<div id="page">
+
+  <div id="meta">
+    <span id="wordmark">LiveDoodle</span>
+    <a id="back" href="/">&#8592; HOME</a>
+  </div>
+
+  <h1>Guest<br>Book</h1>
+
+  <div class="rule"></div>
+
+  <div id="form">
+    <div>
+      <label for="name-input">Name</label>
+      <input id="name-input" type="text" placeholder="Anonymous" maxlength="50" autocomplete="off" />
+    </div>
+    <div>
+      <label for="msg-input">Message</label>
+      <textarea id="msg-input" placeholder="Say something..." maxlength="280"></textarea>
+    </div>
+    <button id="sign-btn">SIGN</button>
+    <div id="form-status"></div>
+  </div>
+
+  <div class="rule"></div>
+
+  <div id="entries"><div id="loading">Loading...</div></div>
+
+</div>
+
+<script>
+  function formatDate(ts) {
+    const d = new Date(ts * 1000);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function renderEntries(entries) {
+    const container = document.getElementById("entries");
+    if (!entries.length) {
+      container.innerHTML = '<div id="empty">No entries yet — be the first.</div>';
+      return;
+    }
+    container.innerHTML = [...entries].reverse().map(e => `
+      <div class="entry">
+        <div class="entry-name">${escHtml(e.name)}</div>
+        <div class="entry-message">${escHtml(e.message)}</div>
+        <div class="entry-meta">${[e.location, formatDate(e.time)].filter(Boolean).join(" // ")}</div>
+      </div>
+    `).join("");
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  async function loadEntries() {
+    try {
+      const r = await fetch("/guestbook/entries");
+      renderEntries(await r.json());
+    } catch (_) {
+      document.getElementById("entries").innerHTML = '<div id="empty">Failed to load.</div>';
+    }
+  }
+
+  loadEntries();
+
+  document.getElementById("sign-btn").addEventListener("click", async () => {
+    const name = document.getElementById("name-input").value.trim();
+    const message = document.getElementById("msg-input").value.trim();
+    const status = document.getElementById("form-status");
+    const btn = document.getElementById("sign-btn");
+
+    if (!message) {
+      status.textContent = "Message required.";
+      status.className = "error";
+      return;
+    }
+
+    btn.disabled = true;
+    status.textContent = "";
+    status.className = "";
+
+    try {
+      const r = await fetch("/guestbook/sign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, message }),
+      });
+      if (r.ok) {
+        document.getElementById("name-input").value = "";
+        document.getElementById("msg-input").value = "";
+        status.textContent = "Signed!";
+        status.className = "";
+        await loadEntries();
+      } else {
+        status.textContent = "Error. Try again.";
+        status.className = "error";
+      }
+    } catch (_) {
+      status.textContent = "Network error.";
+      status.className = "error";
+    }
+
+    btn.disabled = false;
+  });
+</script>
+</body>
+</html>
