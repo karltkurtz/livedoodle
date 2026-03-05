@@ -14,12 +14,29 @@ ARTWORK_FILE = "artwork_history.json"
 MAX_ARTWORK = 25
 GUESTBOOK_FILE = "guestbook.json"
 MAX_GUESTBOOK = 200
+HOME_STATUS_FILE = "home_status.json"
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
 _latest_frame: bytes | None = None
 _geo_cache: dict[str, str] = {}
+_is_home: bool = True
+
+
+def _load_home_status() -> bool:
+    if os.path.exists(HOME_STATUS_FILE):
+        try:
+            with open(HOME_STATUS_FILE) as f:
+                return json.load(f).get("home", True)
+        except Exception:
+            pass
+    return True
+
+
+def _save_home_status(home: bool):
+    with open(HOME_STATUS_FILE, "w") as f:
+        json.dump({"home": home}, f)
 
 
 def _get_ws_ip(websocket: WebSocket) -> str:
@@ -117,6 +134,8 @@ async def _poll_camera():
 
 @app.on_event("startup")
 async def startup():
+    global _is_home
+    _is_home = _load_home_status()
     asyncio.create_task(_poll_camera())
 
 
@@ -202,7 +221,23 @@ manager = ConnectionManager()
 
 @app.get("/", response_class=HTMLResponse)
 async def home_page(request: Request):
-    return templates.TemplateResponse("home.html", {"request": request})
+    return templates.TemplateResponse("home.html", {"request": request, "is_home": _is_home})
+
+
+@app.post("/set-home")
+async def set_home():
+    global _is_home
+    _is_home = True
+    _save_home_status(True)
+    return JSONResponse({"home": True})
+
+
+@app.post("/set-away")
+async def set_away():
+    global _is_home
+    _is_home = False
+    _save_home_status(False)
+    return JSONResponse({"home": False})
 
 
 @app.get("/draw", response_class=HTMLResponse)

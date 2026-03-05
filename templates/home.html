@@ -82,6 +82,14 @@
       opacity: 0.5;
     }
 
+    #presence {
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    #presence.home { color: var(--green); }
+    #presence.away { color: var(--amber); }
+
     #wordmark-dot {
       width: 6px; height: 6px;
       background: var(--coral);
@@ -316,6 +324,7 @@
 
   <div id="meta">
     <span id="wordmark"><span id="wordmark-dot"></span>LiveDoodle</span>
+    <span id="presence" class="{{ 'home' if is_home else 'away' }}">{{ 'I AM HOME' if is_home else 'I AM AWAY' }}</span>
   </div>
 
   <div id="hero">
