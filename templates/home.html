@@ -72,6 +72,9 @@
     }
 
     #wordmark {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       font-size: 11px;
       letter-spacing: 0.28em;
       text-transform: uppercase;
@@ -79,7 +82,18 @@
       opacity: 0.5;
     }
 
+    #wordmark-dot {
+      width: 6px; height: 6px;
+      background: var(--coral);
+      box-shadow: 0 0 6px var(--coral);
+      flex-shrink: 0;
+      animation: blink 1s step-end infinite;
+    }
+
     #live-badge {
+      position: absolute;
+      top: 8px; right: 8px;
+      z-index: 4;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -88,6 +102,7 @@
       color: var(--coral);
       border: 1px solid rgba(255,74,42,0.4);
       padding: 4px 10px;
+      background: rgba(0,0,0,0.6);
     }
 
     #live-dot {
@@ -106,7 +121,7 @@
     #hero { display: flex; flex-direction: column; gap: 12px; }
 
     h1 {
-      font-size: clamp(52px, 14vw, 88px);
+      font-size: clamp(35px, 9.4vw, 59px);
       font-weight: normal;
       letter-spacing: -0.01em;
       line-height: 0.9;
@@ -300,11 +315,7 @@
 <div id="page">
 
   <div id="meta">
-    <span id="wordmark">LiveDoodle</span>
-    <div id="live-badge">
-      <div id="live-dot"></div>
-      LIVE
-    </div>
+    <span id="wordmark"><span id="wordmark-dot"></span>LiveDoodle</span>
   </div>
 
   <div id="hero">
@@ -316,6 +327,10 @@
 
   <div id="stream-frame">
     <div id="stream-inner">
+      <div id="live-badge">
+        <div id="live-dot"></div>
+        LIVE
+      </div>
       <div id="stream-wrapper">
         <img id="stream" src="/snapshot" alt="" />
         <span id="feed-label">FEED_01 // LIVE</span>
@@ -425,6 +440,11 @@
     ctx.globalAlpha = 1;
     requestAnimationFrame(tick);
   })();
+
+  // Sync blink dots to same phase
+  const blinkDelay = -(performance.now() % 1000) + 'ms';
+  document.getElementById('live-dot').style.animationDelay = blinkDelay;
+  document.getElementById('wordmark-dot').style.animationDelay = blinkDelay;
 </script>
 </body>
 </html>
