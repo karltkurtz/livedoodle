@@ -298,6 +298,15 @@ async def admin_set_away(request: Request):
     return JSONResponse({"home": False})
 
 
+@app.post("/admin/reload-display")
+async def admin_reload_display(request: Request):
+    body = await request.json()
+    if not _check_password(body):
+        return JSONResponse({"error": "wrong password"}, status_code=401)
+    await manager.broadcast_to_displays({"type": "reload"})
+    return JSONResponse({"ok": True})
+
+
 @app.get("/draw", response_class=HTMLResponse)
 async def draw_page(request: Request):
     return templates.TemplateResponse("draw.html", {"request": request})

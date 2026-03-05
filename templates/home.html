@@ -30,8 +30,7 @@
     }
 
     /* Scanlines */
-    body::before {
-      content: '';
+    #scanlines {
       position: fixed;
       inset: 0;
       background: repeating-linear-gradient(
@@ -42,7 +41,7 @@
         rgba(0,0,0,0.1) 4px
       );
       pointer-events: none;
-      z-index: 999;
+      z-index: 2;
     }
 
     /* Pixel starfield */
@@ -55,7 +54,6 @@
 
     #page {
       position: relative;
-      z-index: 1;
       width: 100%;
       max-width: 540px;
       padding: 44px 20px 38px;
@@ -166,26 +164,9 @@
     /* Stream */
     #stream-frame {
       position: relative;
-      width: 100%;
-      padding: 4px;
-    }
-
-    #stream-frame::before,
-    #stream-frame::after,
-    #stream-inner::before,
-    #stream-inner::after {
-      content: '';
-      position: absolute;
-      width: 14px; height: 14px;
-      border: 2px solid var(--teal);
       z-index: 3;
-      box-shadow: 0 0 6px rgba(0,229,255,0.3);
+      width: 100%;
     }
-
-    #stream-frame::before { top: 0;    left: 0;   border-width: 2px 0 0 2px; }
-    #stream-frame::after  { top: 0;    right: 0;  border-width: 2px 2px 0 0; }
-    #stream-inner::before { bottom: 0; left: 0;   border-width: 0 0 2px 2px; }
-    #stream-inner::after  { bottom: 0; right: 0;  border-width: 0 2px 2px 0; }
 
     #stream-inner { position: relative; width: 100%; }
 
@@ -193,7 +174,8 @@
       width: 100%;
       aspect-ratio: 4/3;
       background: #030303;
-      border: 1px solid #111;
+      border: 2px solid var(--teal);
+      box-shadow: 0 0 12px rgba(0,229,255,0.35), 0 0 4px rgba(0,229,255,0.2);
       overflow: hidden;
       position: relative;
     }
@@ -337,6 +319,7 @@
 </head>
 <body>
 <canvas id="starfield"></canvas>
+<div id="scanlines"></div>
 
 <div id="page">
 

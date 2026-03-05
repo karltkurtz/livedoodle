@@ -258,6 +258,33 @@
       margin-top: 6px;
     }
 
+    /* Display reload */
+    #reload-display-btn {
+      width: 100%;
+      padding: 14px 10px;
+      background: var(--bg);
+      border: 2px solid var(--teal);
+      color: var(--teal);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(0,229,255,0.2);
+      transition: opacity 0.1s, box-shadow 0.15s;
+    }
+    #reload-display-btn:hover { box-shadow: 0 0 18px rgba(0,229,255,0.4); }
+    #reload-display-btn:active { opacity: 0.7; }
+
+    #reload-display-status {
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--teal);
+      min-height: 14px;
+      margin-top: 6px;
+    }
+
     /* Data */
     .data-row {
       display: flex;
