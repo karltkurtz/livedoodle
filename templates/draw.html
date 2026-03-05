@@ -114,14 +114,19 @@
       gap: 8px;
     }
 
+    #timer-bar {
+      text-align: center;
+      padding: 6px 0 2px;
+      background: #0a0a0a;
+    }
+
     #timer {
-      font-size: 12px;
-      color: #333;
-      letter-spacing: 0.1em;
+      font-size: 36px;
+      color: var(--coral);
+      letter-spacing: 0.08em;
     }
 
     #timer.urgent {
-      color: var(--coral);
       animation: timer-pulse 0.6s ease-in-out infinite alternate;
     }
 
@@ -179,7 +184,7 @@
     }
 
     #size-label {
-      color: #333;
+      color: #fff;
       font-size: 10px;
       letter-spacing: 0.15em;
       text-transform: uppercase;
@@ -192,6 +197,39 @@
       accent-color: var(--amber);
       height: 3px;
       cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+    }
+
+    #brush-size::-webkit-slider-runnable-track {
+      height: 3px;
+      background: #fff;
+      border-radius: 0;
+    }
+
+    #brush-size::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      background: var(--amber);
+      border-radius: 0;
+      margin-top: -5.5px;
+      box-shadow: 0 0 6px rgba(255,179,0,0.5);
+    }
+
+    #brush-size::-moz-range-track {
+      height: 3px;
+      background: #fff;
+    }
+
+    #brush-size::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      background: var(--amber);
+      border: none;
+      border-radius: 0;
+      box-shadow: 0 0 6px rgba(255,179,0,0.5);
     }
 
     button {
@@ -340,13 +378,14 @@
   </div>
 </div>
 
+<div id="timer-bar"><span id="timer">5:00</span></div>
+
 <div id="toolbar">
   <div id="brand">
     <div id="brand-left">
       <div id="dot"></div>
       <span id="brand-name">LiveDoodle</span>
     </div>
-    <span id="timer">5:00</span>
   </div>
 
   <div id="swatches"></div>
