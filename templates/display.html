@@ -30,7 +30,7 @@
     ctx.moveTo(msg.x0 * canvas.width, msg.y0 * canvas.height);
     ctx.lineTo(msg.x1 * canvas.width, msg.y1 * canvas.height);
     ctx.strokeStyle = msg.color;
-    ctx.lineWidth = msg.size;
+    ctx.lineWidth = msg.size >= 1 ? msg.size : msg.size * canvas.width;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.stroke();

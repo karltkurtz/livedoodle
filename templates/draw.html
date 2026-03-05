@@ -479,7 +479,7 @@
         drawSegment(
           s.x0 * canvas.width,  s.y0 * canvas.height,
           s.x1 * canvas.width,  s.y1 * canvas.height,
-          s.color, s.size
+          s.color, s.size >= 1 ? s.size : s.size * canvas.width
         );
       } else if (s.type === "stamp") {
         replayStamp(s);
@@ -592,7 +592,7 @@
     const color = getColor();
     const size = brushSize;
     const stroke = {
-      type: "stroke", color, size,
+      type: "stroke", color, size: size / canvas.width,
       x0: prevX / canvas.width,  y0: prevY / canvas.height,
       x1: x    / canvas.width,   y1: y    / canvas.height,
     };
