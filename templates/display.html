@@ -18,6 +18,7 @@
 
   let history = [];
   const imageCache = {};  // data URL → HTMLImageElement
+  let _dashOffset = 0;
 
   function resizeCanvas() {
     canvas.width = window.innerWidth;
@@ -26,14 +27,34 @@
   }
 
   function drawSegment(msg) {
+    const size = msg.size >= 1 ? msg.size : msg.size * canvas.width;
+    const segLen = Math.hypot(
+      (msg.x1 - msg.x0) * canvas.width,
+      (msg.y1 - msg.y0) * canvas.height
+    );
     ctx.beginPath();
     ctx.moveTo(msg.x0 * canvas.width, msg.y0 * canvas.height);
     ctx.lineTo(msg.x1 * canvas.width, msg.y1 * canvas.height);
     ctx.strokeStyle = msg.color;
-    ctx.lineWidth = msg.size >= 1 ? msg.size : msg.size * canvas.width;
+    ctx.lineWidth = size;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
+    if (msg.mode === "dotted") {
+      const period = size * 2.5;
+      ctx.setLineDash([0, period]);
+      ctx.lineDashOffset = -_dashOffset;
+      _dashOffset = (_dashOffset + segLen) % period;
+    } else if (msg.mode === "dashed") {
+      const period = size * 4 + size * 2;
+      ctx.setLineDash([size * 4, size * 2]);
+      ctx.lineDashOffset = -_dashOffset;
+      _dashOffset = (_dashOffset + segLen) % period;
+    } else {
+      ctx.setLineDash([]);
+      _dashOffset = 0;
+    }
     ctx.stroke();
+    ctx.setLineDash([]);
   }
 
   function drawStamp(msg, img) {
@@ -46,6 +67,7 @@
 
   function redraw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    _dashOffset = 0;
     for (const msg of history) {
       if (msg.type === "stroke") {
         drawSegment(msg);

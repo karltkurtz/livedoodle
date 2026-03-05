@@ -209,16 +209,34 @@
     const w = canvas.width;
     const h = canvas.height;
     ctx.clearRect(0, 0, w, h);
+    let dashOffset = 0;
 
     function drawStroke(s) {
+      const size = s.size >= 1 ? s.size : s.size * w;
+      const segLen = Math.hypot((s.x1 - s.x0) * w, (s.y1 - s.y0) * h);
       ctx.beginPath();
       ctx.moveTo(s.x0 * w, s.y0 * h);
       ctx.lineTo(s.x1 * w, s.y1 * h);
       ctx.strokeStyle = s.color;
-      ctx.lineWidth = s.size >= 1 ? s.size : s.size * w;
+      ctx.lineWidth = size;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
+      if (s.mode === "dotted") {
+        const period = size * 2.5;
+        ctx.setLineDash([0, period]);
+        ctx.lineDashOffset = -dashOffset;
+        dashOffset = (dashOffset + segLen) % period;
+      } else if (s.mode === "dashed") {
+        const period = size * 4 + size * 2;
+        ctx.setLineDash([size * 4, size * 2]);
+        ctx.lineDashOffset = -dashOffset;
+        dashOffset = (dashOffset + segLen) % period;
+      } else {
+        ctx.setLineDash([]);
+        dashOffset = 0;
+      }
       ctx.stroke();
+      ctx.setLineDash([]);
     }
 
     function drawStamp(s, img) {

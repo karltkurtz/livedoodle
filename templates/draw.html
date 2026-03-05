@@ -127,20 +127,24 @@
     }
 
     #toolbar.stamp-mode #brand,
-    #toolbar.stamp-mode #shapes-section,
+    #toolbar.stamp-mode #tools-section,
     #toolbar.stamp-mode #swatches,
     #toolbar.stamp-mode #controls {
       opacity: 0.25;
       pointer-events: none;
     }
 
-    #shapes-section {
+    #tools-section {
       display: flex;
       flex-direction: column;
       gap: 14px;
     }
 
-    #shapes-section { align-items: center; }
+    #tools-btns {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
 
     #shape-toggle-btn {
       border-color: var(--purple);
@@ -166,6 +170,31 @@
       border-color: var(--purple);
       color: var(--purple);
       box-shadow: 0 0 8px rgba(191,95,255,0.3);
+    }
+
+    #brush-toggle-btn {
+      border-color: var(--teal);
+      color: var(--teal);
+      box-shadow: 0 0 8px rgba(0,229,255,0.3);
+      width: 120px;
+    }
+
+    #brush-toggle-btn.open { box-shadow: 0 0 14px rgba(0,229,255,0.6); }
+    #brush-toggle-btn.active { border-color: var(--teal); color: var(--teal); }
+
+    #brush-picker {
+      display: none;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+    }
+
+    #brush-picker.open { display: flex; }
+
+    .brush-mode-btn.active {
+      border-color: var(--teal);
+      color: var(--teal);
+      box-shadow: 0 0 8px rgba(0,229,255,0.3);
     }
 
     /* ── Toolbar ── */
@@ -501,8 +530,11 @@
     </div>
   </div>
 
-  <div id="shapes-section">
-    <button id="shape-toggle-btn">SHAPES</button>
+  <div id="tools-section">
+    <div id="tools-btns">
+      <button id="shape-toggle-btn">SHAPES</button>
+      <button id="brush-toggle-btn">BRUSH</button>
+    </div>
     <div id="shape-picker">
       <button class="shape-btn" data-shape="circle">CIRCLE</button>
       <button class="shape-btn" data-shape="square">SQUARE</button>
@@ -510,6 +542,11 @@
       <button class="shape-btn" data-shape="star">STAR</button>
       <button class="shape-btn" data-shape="diamond">DIAMOND</button>
       <button class="shape-btn" data-shape="hexagon">HEX</button>
+    </div>
+    <div id="brush-picker">
+      <button class="brush-mode-btn active" data-mode="solid">SOLID</button>
+      <button class="brush-mode-btn" data-mode="dotted">DOTTED</button>
+      <button class="brush-mode-btn" data-mode="dashed">DASHED</button>
     </div>
   </div>
 
@@ -576,6 +613,7 @@
   let baseHistory = [];
   const undoStack = [];
   let currentGesture = null;
+  let _dashOffset = 0;  // tracks dash pattern continuity across segments
   const imageCache = {};  // data URL → HTMLImageElement
 
   function flatHistory() {
@@ -608,12 +646,14 @@
   }
 
   function replayHistory() {
+    _dashOffset = 0;
     for (const s of flatHistory()) {
       if (s.type === "stroke") {
         drawSegment(
           s.x0 * canvas.width,  s.y0 * canvas.height,
           s.x1 * canvas.width,  s.y1 * canvas.height,
-          s.color, s.size >= 1 ? s.size : s.size * canvas.width
+          s.color, s.size >= 1 ? s.size : s.size * canvas.width,
+          s.mode
         );
       } else if (s.type === "stamp") {
         replayStamp(s);
@@ -634,6 +674,7 @@
   let currentColor = COLORS[0];
   let isErasing = false;
   let brushSize = 6;
+  let brushMode = "solid";
   let drawing = false;
   let prevX = 0, prevY = 0;
 
@@ -701,7 +742,8 @@
     return isErasing ? "#ffffff" : currentColor;
   }
 
-  function drawSegment(x0, y0, x1, y1, color, size) {
+  function drawSegment(x0, y0, x1, y1, color, size, mode) {
+    const segLen = Math.hypot(x1 - x0, y1 - y0);
     ctx.beginPath();
     ctx.moveTo(x0, y0);
     ctx.lineTo(x1, y1);
@@ -709,7 +751,22 @@
     ctx.lineWidth = size;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
+    if (mode === "dotted") {
+      const period = size * 2.5;
+      ctx.setLineDash([0, period]);
+      ctx.lineDashOffset = -_dashOffset;
+      _dashOffset = (_dashOffset + segLen) % period;
+    } else if (mode === "dashed") {
+      const period = size * 4 + size * 2;
+      ctx.setLineDash([size * 4, size * 2]);
+      ctx.lineDashOffset = -_dashOffset;
+      _dashOffset = (_dashOffset + segLen) % period;
+    } else {
+      ctx.setLineDash([]);
+      _dashOffset = 0;
+    }
     ctx.stroke();
+    ctx.setLineDash([]);
   }
 
   const stampOverlay  = document.getElementById("stamp-overlay");
@@ -727,12 +784,13 @@
     if (!drawing) return;
     const color = getColor();
     const size = brushSize;
+    const mode = isErasing ? "solid" : brushMode;
     const stroke = {
-      type: "stroke", color, size: size / canvas.width,
+      type: "stroke", color, size: size / canvas.width, mode,
       x0: prevX / canvas.width,  y0: prevY / canvas.height,
       x1: x    / canvas.width,   y1: y    / canvas.height,
     };
-    drawSegment(prevX, prevY, x, y, color, size);
+    drawSegment(prevX, prevY, x, y, color, size, mode);
     currentGesture.segments.push(stroke);
     send(stroke);
     prevX = x; prevY = y;
@@ -741,6 +799,7 @@
   function endDraw() {
     if (!drawing) return;
     drawing = false;
+    _dashOffset = 0;
     if (currentGesture && currentGesture.segments.length > 0) {
       undoStack.push(currentGesture);
       updateUndoBtn();
@@ -1002,10 +1061,34 @@
   // ── Shape picker ──
   const shapeToggleBtn = document.getElementById("shape-toggle-btn");
   const shapePicker    = document.getElementById("shape-picker");
+  const brushToggleBtn = document.getElementById("brush-toggle-btn");
+  const brushPicker    = document.getElementById("brush-picker");
 
   shapeToggleBtn.addEventListener("click", () => {
+    brushPicker.classList.remove("open");
+    brushToggleBtn.classList.remove("open");
     shapePicker.classList.toggle("open");
     shapeToggleBtn.classList.toggle("open", shapePicker.classList.contains("open"));
+  });
+
+  // ── Brush picker ──
+  brushToggleBtn.addEventListener("click", () => {
+    shapePicker.classList.remove("open");
+    shapeToggleBtn.classList.remove("open");
+    brushPicker.classList.toggle("open");
+    brushToggleBtn.classList.toggle("open", brushPicker.classList.contains("open"));
+  });
+
+  document.querySelectorAll(".brush-mode-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      brushMode = btn.dataset.mode;
+      document.querySelectorAll(".brush-mode-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      brushPicker.classList.remove("open");
+      brushToggleBtn.classList.remove("open");
+      // Show active mode in button label when non-solid
+      brushToggleBtn.textContent = brushMode === "solid" ? "BRUSH" : `BRUSH: ${brushMode.toUpperCase()}`;
+    });
   });
 
   function renderShape(type, color) {
@@ -1060,6 +1143,8 @@
       toolbar.classList.add("stamp-mode");
       shapePicker.classList.remove("open");
       shapeToggleBtn.classList.remove("open");
+      brushPicker.classList.remove("open");
+      brushToggleBtn.classList.remove("open");
     });
   });
 
