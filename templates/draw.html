@@ -511,7 +511,7 @@
 </head>
 <body>
 
-<div id="timer-bar">Your art will automatically submit in &mdash; <span id="timer">5:00</span></div>
+<div id="timer-bar">Your art will automatically submit in &mdash;<br><span id="timer">5:00</span></div>
 
 <div id="canvas-area">
   <div id="canvas-wrapper">
@@ -570,7 +570,7 @@
     </div>
     <div id="size-row">
       <span id="size-label">SIZE</span>
-      <input id="brush-size" type="range" min="1" max="40" value="6" />
+      <input id="brush-size" type="range" min="1" max="40" value="11" />
     </div>
     <div id="btn-row">
       <button id="eraser-btn">ERASER</button>
@@ -688,7 +688,7 @@
   // ── State ──
   let currentColor = COLORS[0];
   let isErasing = false;
-  let brushSize = 6;
+  let brushSize = 11;
   let brushMode = "solid";
   let drawing = false;
   let prevX = 0, prevY = 0;
