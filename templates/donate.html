@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LiveDoodle // Donate</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --amber:  #ffb300;
+      --teal:   #00e5ff;
+      --coral:  #ff4a2a;
+      --green:  #39ff14;
+      --purple: #bf5fff;
+      --bg:     #0a0a0a;
+    }
+
+    html, body {
+      width: 100%; min-height: 100%;
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg);
+      color: #555;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #starfield {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.1) 3px,
+        rgba(0,0,0,0.1) 4px
+      );
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    #page {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 540px;
+      padding: 44px 20px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    #meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    #wordmark {
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--teal);
+      opacity: 0.5;
+    }
+
+    #back {
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #333;
+      text-decoration: none;
+    }
+    #back:hover { color: #555; }
+
+    h1 {
+      font-size: clamp(36px, 10vw, 56px);
+      font-weight: normal;
+      letter-spacing: -0.01em;
+      line-height: 0.9;
+      text-transform: uppercase;
+      color: var(--coral);
+      text-shadow: 0 0 18px rgba(255,74,42,0.45), 0 0 54px rgba(255,74,42,0.1);
+    }
+
+    .rule {
+      height: 1px;
+      background: linear-gradient(90deg, rgba(255,74,42,0.25), transparent);
+    }
+
+    .section { display: flex; flex-direction: column; gap: 10px; }
+
+    .section-label {
+      font-size: 9px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--coral);
+      opacity: 0.5;
+    }
+
+    .section-body {
+      font-size: 12px;
+      color: #484848;
+      line-height: 1.8;
+      letter-spacing: 0.04em;
+    }
+
+    /* BOM table */
+    #bom {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      border: 1px solid #1a1a1a;
+    }
+
+    .bom-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 8px 14px;
+      border-bottom: 1px solid #111;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+    }
+
+    .bom-row:last-child { border-bottom: none; }
+
+    .bom-item { color: #363636; }
+
+    .bom-price { color: var(--amber); opacity: 0.6; flex-shrink: 0; }
+
+    .bom-total {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 14px;
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      border-top: 1px solid #222;
+      margin-top: 4px;
+    }
+
+    .bom-total-label { color: #333; text-transform: uppercase; }
+    .bom-total-price { color: var(--amber); }
+
+    /* Venmo button */
+    #venmo-btn {
+      display: block;
+      padding: 18px 20px;
+      background: var(--bg);
+      border: 2px solid var(--coral);
+      color: var(--coral);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 18px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      text-decoration: none;
+      text-align: center;
+      box-shadow: 0 0 16px rgba(255,74,42,0.3);
+      transition: opacity 0.1s, box-shadow 0.15s;
+    }
+
+    #venmo-btn:hover { box-shadow: 0 0 28px rgba(255,74,42,0.5); }
+    #venmo-btn:active { opacity: 0.7; }
+
+    .venmo-sub {
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #282828;
+      text-align: center;
+      margin-top: -8px;
+    }
+  </style>
+</head>
+<body>
+<canvas id="starfield"></canvas>
+<div id="page">
+
+  <div id="meta">
+    <span id="wordmark">LiveDoodle</span>
+    <a id="back" href="/">&#8592; HOME</a>
+  </div>
+
+  <h1>Donate</h1>
+
+  <div class="rule"></div>
+
+  <div class="section">
+    <div class="section-label">// The story</div>
+    <div class="section-body">
+      This whole thing started as a dumb idea — what if strangers on the internet could draw on a screen in my garage? A weekend of hacking later and it actually worked. Two Raspberry Pis talking to each other over WebSockets, a camera pointed at a tiny display, and a FastAPI server running in a corner. The real-time latency turned out way lower than expected and watching the first stroke show up live on the physical screen was genuinely one of the most satisfying moments I've had building something.
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <div class="section">
+    <div class="section-label">// What it cost to build</div>
+    <div id="bom">
+      <div class="bom-row"><span class="bom-item">Raspberry Pi 4 (server + display)</span><span class="bom-price">~$45</span></div>
+      <div class="bom-row"><span class="bom-item">Raspberry Pi 4 (camera)</span><span class="bom-price">~$45</span></div>
+      <div class="bom-row"><span class="bom-item">7" touchscreen display</span><span class="bom-price">~$75</span></div>
+      <div class="bom-row"><span class="bom-item">Raspberry Pi HQ camera</span><span class="bom-price">~$50</span></div>
+      <div class="bom-row"><span class="bom-item">SD cards &times; 2</span><span class="bom-price">~$20</span></div>
+      <div class="bom-row"><span class="bom-item">Power supplies &times; 2</span><span class="bom-price">~$20</span></div>
+      <div class="bom-row"><span class="bom-item">Cables, mounts, misc</span><span class="bom-price">~$15</span></div>
+    </div>
+    <div class="bom-total">
+      <span class="bom-total-label">Total</span>
+      <span class="bom-total-price">~$270</span>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <div class="section">
+    <div class="section-label">// Help keep it running</div>
+    <div class="section-body">
+      LiveDoodle is free, has no ads, and never will. If you got a kick out of drawing something on a screen in a stranger's garage, a tip goes a long way toward keeping the lights on — and maybe funding the next weird hardware project.
+    </div>
+  </div>
+
+  <a id="venmo-btn" href="https://venmo.com/u/YOUR_USERNAME" target="_blank" rel="noopener">SEND A TIP ON VENMO</a>
+  <p class="venmo-sub">@YOUR_USERNAME</p>
+
+</div>
+
+<script>
+  const sf = document.getElementById("starfield");
+  const ctx = sf.getContext("2d");
+  const COLORS = ["#ffb300", "#00e5ff", "#ff4a2a", "#39ff14", "#bf5fff"];
+  const SZ = 3, N = 40;
+  function resize() { sf.width = window.innerWidth; sf.height = window.innerHeight; }
+  resize();
+  window.addEventListener("resize", resize);
+  const pixels = Array.from({ length: N }, () => ({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    speed: 0.3 + Math.random() * 0.6,
+    color: COLORS[Math.floor(Math.random() * COLORS.length)],
+    opacity: 0.08 + Math.random() * 0.22,
+  }));
+  (function tick() {
+    ctx.clearRect(0, 0, sf.width, sf.height);
+    for (const p of pixels) {
+      ctx.globalAlpha = p.opacity;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), SZ, SZ);
+      p.y -= p.speed;
+      if (p.y < -SZ) { p.y = sf.height + SZ; p.x = Math.random() * sf.width; p.color = COLORS[Math.floor(Math.random() * COLORS.length)]; }
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(tick);
+  })();
+</script>
+</body>
+</html>

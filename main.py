@@ -234,6 +234,11 @@ async def artwork_entries():
     return JSONResponse(_load_artwork())
 
 
+@app.get("/donate", response_class=HTMLResponse)
+async def donate_page(request: Request):
+    return templates.TemplateResponse("donate.html", {"request": request})
+
+
 @app.get("/about", response_class=HTMLResponse)
 async def about_page(request: Request):
     return templates.TemplateResponse("about.html", {"request": request})
