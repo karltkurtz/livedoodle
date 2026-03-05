@@ -68,11 +68,27 @@
     }
 
     #wordmark {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       font-size: 11px;
       letter-spacing: 0.28em;
       text-transform: uppercase;
       color: var(--teal);
       opacity: 0.5;
+    }
+
+    #wordmark-dot {
+      width: 6px; height: 6px;
+      background: var(--coral);
+      box-shadow: 0 0 6px var(--coral);
+      flex-shrink: 0;
+      animation: blink 1s step-end infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
     }
 
     #back {
@@ -168,7 +184,7 @@
 <div id="page">
 
   <div id="meta">
-    <span id="wordmark">LiveDoodle</span>
+    <span id="wordmark"><span id="wordmark-dot"></span>LiveDoodle</span>
     <a id="back" href="/">&#8592; HOME</a>
   </div>
 
@@ -317,6 +333,7 @@
     sfCtx.globalAlpha = 1;
     requestAnimationFrame(tick);
   })();
+  document.getElementById('wordmark-dot').style.animationDelay = -(performance.now() % 1000) + 'ms';
 </script>
 </body>
 </html>
