@@ -126,6 +126,13 @@
       gap: 8px;
     }
 
+    #toolbar.stamp-mode #brand,
+    #toolbar.stamp-mode #swatches,
+    #toolbar.stamp-mode #controls {
+      opacity: 0.25;
+      pointer-events: none;
+    }
+
     /* ── Toolbar ── */
     #toolbar {
       background: #0a0a0a;
@@ -660,6 +667,7 @@
 
   const stampOverlay  = document.getElementById("stamp-overlay");
   const stampControls = document.getElementById("stamp-controls");
+  const toolbar       = document.getElementById("toolbar");
 
   function startDraw(x, y) {
     if (stampOverlay.classList.contains("active")) return;
@@ -824,6 +832,7 @@
       updateStampPos();
       stampOverlay.classList.add("active");
       stampControls.style.display = "flex";
+      toolbar.classList.add("stamp-mode");
     });
   });
 
@@ -901,6 +910,7 @@
   document.getElementById("discard-stamp-btn").addEventListener("click", () => {
     stampOverlay.classList.remove("active");
     stampControls.style.display = "none";
+    toolbar.classList.remove("stamp-mode");
     stampData = null;
   });
 
@@ -938,6 +948,7 @@
 
     stampOverlay.classList.remove("active");
     stampControls.style.display = "none";
+    toolbar.classList.remove("stamp-mode");
     stampData = null;
   });
 
