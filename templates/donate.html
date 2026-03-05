@@ -118,7 +118,7 @@
     .section { display: flex; flex-direction: column; gap: 10px; }
 
     .section-label {
-      font-size: 9px;
+      font-size: 12px;
       letter-spacing: 0.25em;
       text-transform: uppercase;
       color: var(--coral);
@@ -146,7 +146,7 @@
       align-items: baseline;
       padding: 8px 14px;
       border-bottom: 1px solid #111;
-      font-size: 10px;
+      font-size: 12px;
       letter-spacing: 0.08em;
     }
 
@@ -160,7 +160,7 @@
       display: flex;
       justify-content: space-between;
       padding: 10px 14px;
-      font-size: 10px;
+      font-size: 12px;
       letter-spacing: 0.15em;
       border-top: 1px solid #222;
       margin-top: 4px;
@@ -170,6 +170,11 @@
     .bom-total-price { color: var(--amber); }
 
     /* Venmo button */
+    @keyframes venmo-pulse {
+      0%, 100% { box-shadow: 0 0 10px rgba(255,74,42,0.2), 0 0 24px rgba(255,74,42,0.05); }
+      50%       { box-shadow: 0 0 28px rgba(255,74,42,0.6), 0 0 60px rgba(255,74,42,0.2); }
+    }
+
     #venmo-btn {
       display: block;
       padding: 18px 20px;
@@ -182,15 +187,14 @@
       text-transform: uppercase;
       text-decoration: none;
       text-align: center;
-      box-shadow: 0 0 16px rgba(255,74,42,0.3);
-      transition: opacity 0.1s, box-shadow 0.15s;
+      animation: venmo-pulse 2.8s ease-in-out infinite;
+      transition: opacity 0.1s;
     }
 
-    #venmo-btn:hover { box-shadow: 0 0 28px rgba(255,74,42,0.5); }
     #venmo-btn:active { opacity: 0.7; }
 
     .venmo-sub {
-      font-size: 9px;
+      font-size: 12px;
       letter-spacing: 0.15em;
       text-transform: uppercase;
       color: #555;
@@ -218,7 +222,7 @@
   <div class="section">
     <div class="section-label">// The story</div>
     <div class="section-body">
-      This whole project started as a fleeting idea — what if strangers on the internet could draw on a screen in my house? A weekend of tinkering later and it actually worked. Two Raspberry Pis talking to each other over WebSockets, a camera pointed at a 7" display, and a FastAPI server running in the background. The real-time latency turned out way lower than expected and watching the first stroke show up live on the physical screen was genuinely one of the most satisfying moments I've had building something.
+      What if strangers on the internet could draw on a screen in my house? A weekend of tinkering later and it actually worked — two Raspberry Pis, a WebSocket server, and a camera pointed at a 7&quot; display. The latency turned out way lower than expected. Watching the first stroke show up live on real hardware was one of the most satisfying moments I've had building something.
     </div>
   </div>
 
