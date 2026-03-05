@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LiveDoodle // About</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --amber:  #ffb300;
+      --teal:   #00e5ff;
+      --coral:  #ff4a2a;
+      --green:  #39ff14;
+      --purple: #bf5fff;
+      --bg:     #0a0a0a;
+    }
+
+    html, body {
+      width: 100%; min-height: 100%;
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg);
+      color: #555;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.1) 3px,
+        rgba(0,0,0,0.1) 4px
+      );
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    #page {
+      width: 100%;
+      max-width: 540px;
+      padding: 44px 20px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    #meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    #wordmark {
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--teal);
+      opacity: 0.5;
+    }
+
+    #back {
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #333;
+      text-decoration: none;
+    }
+    #back:hover { color: #555; }
+
+    h1 {
+      font-size: clamp(36px, 10vw, 56px);
+      font-weight: normal;
+      letter-spacing: -0.01em;
+      line-height: 0.9;
+      text-transform: uppercase;
+      color: var(--teal);
+      text-shadow: 0 0 18px rgba(0,229,255,0.45), 0 0 54px rgba(0,229,255,0.1);
+    }
+
+    .rule {
+      height: 1px;
+      background: linear-gradient(90deg, rgba(0,229,255,0.25), transparent);
+    }
+
+    .section { display: flex; flex-direction: column; gap: 10px; }
+
+    .section-label {
+      font-size: 9px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--teal);
+      opacity: 0.5;
+    }
+
+    .section-body {
+      font-size: 12px;
+      color: #484848;
+      line-height: 1.8;
+      letter-spacing: 0.04em;
+    }
+
+    .section-body b {
+      color: #666;
+      font-weight: normal;
+    }
+
+    /* Hardware diagram */
+    #diagram {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 14px;
+      border: 1px solid #1a1a1a;
+    }
+
+    .diag-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+    }
+
+    .diag-label {
+      color: var(--amber);
+      opacity: 0.7;
+      flex-shrink: 0;
+      width: 80px;
+    }
+
+    .diag-desc {
+      color: #363636;
+    }
+
+    .diag-arrow {
+      text-align: center;
+      color: #222;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      padding: 0 0 0 0;
+    }
+
+    #cta {
+      display: flex;
+      gap: 10px;
+    }
+
+    .cta-btn {
+      flex: 1;
+      padding: 12px;
+      background: var(--bg);
+      border: 1px solid;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      text-decoration: none;
+      text-align: center;
+      display: block;
+      transition: opacity 0.1s;
+    }
+    .cta-btn:active { opacity: 0.7; }
+  </style>
+</head>
+<body>
+<div id="page">
+
+  <div id="meta">
+    <span id="wordmark">LiveDoodle</span>
+    <a id="back" href="/">&#8592; HOME</a>
+  </div>
+
+  <h1>About</h1>
+
+  <div class="rule"></div>
+
+  <div class="section">
+    <div class="section-label">// What it is</div>
+    <div class="section-body">
+      LiveDoodle is a real-time drawing experiment. You open it on your phone, pick up a brush, and start drawing. Your strokes appear live on a <b>7" screen sitting in someone's garage</b> — no account, no install, no delay.
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <div class="section">
+    <div class="section-label">// How it works</div>
+    <div class="section-body">
+      Your phone sends each stroke over a <b>WebSocket</b> as it happens. The server relays it instantly to the garage display. A second Pi running a camera films that screen and streams the feed back to you — so the snapshot on the home page is a live photo of real hardware, not a simulation.
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <div class="section">
+    <div class="section-label">// The setup</div>
+    <div id="diagram">
+      <div class="diag-row">
+        <span class="diag-label">YOUR PHONE</span>
+        <span class="diag-desc">draws via pigarage.com</span>
+      </div>
+      <div class="diag-arrow">&darr; websocket</div>
+      <div class="diag-row">
+        <span class="diag-label">PI A</span>
+        <span class="diag-desc">Raspberry Pi 4 &mdash; runs the server, drives the 7&quot; display</span>
+      </div>
+      <div class="diag-arrow">&darr; HDMI</div>
+      <div class="diag-row">
+        <span class="diag-label">7&quot; SCREEN</span>
+        <span class="diag-desc">your art, rendered full screen in a garage</span>
+      </div>
+      <div class="diag-arrow">&darr; camera</div>
+      <div class="diag-row">
+        <span class="diag-label">PI B</span>
+        <span class="diag-desc">Raspberry Pi 4 &mdash; HQ camera pointed at the display, streams JPEG snapshots</span>
+      </div>
+      <div class="diag-arrow">&darr; tunnel</div>
+      <div class="diag-row">
+        <span class="diag-label">YOU</span>
+        <span class="diag-desc">see the live feed on the home page</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <div id="cta">
+    <a class="cta-btn" href="/draw" style="border-color:var(--amber);color:var(--amber);box-shadow:0 0 8px rgba(255,179,0,0.2);">DRAW</a>
+    <a class="cta-btn" href="/guestbook" style="border-color:var(--purple);color:var(--purple);box-shadow:0 0 8px rgba(191,95,255,0.2);">GUESTBOOK</a>
+  </div>
+
+</div>
+</body>
+</html>

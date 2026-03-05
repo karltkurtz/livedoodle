@@ -234,6 +234,11 @@ async def artwork_entries():
     return JSONResponse(_load_artwork())
 
 
+@app.get("/about", response_class=HTMLResponse)
+async def about_page(request: Request):
+    return templates.TemplateResponse("about.html", {"request": request})
+
+
 @app.get("/guestbook", response_class=HTMLResponse)
 async def guestbook_page(request: Request):
     return templates.TemplateResponse("guestbook.html", {"request": request})
