@@ -15,6 +15,7 @@ MAX_ARTWORK = 25
 GUESTBOOK_FILE = "guestbook.json"
 MAX_GUESTBOOK = 200
 HOME_STATUS_FILE = "home_status.json"
+ADMIN_PASSWORD = "live032319"
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -235,6 +236,63 @@ async def set_home():
 @app.post("/set-away")
 async def set_away():
     global _is_home
+    _is_home = False
+    _save_home_status(False)
+    return JSONResponse({"home": False})
+
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_page(request: Request):
+    return templates.TemplateResponse("admin.html", {"request": request})
+
+
+def _check_password(body: dict) -> bool:
+    return body.get("password") == ADMIN_PASSWORD
+
+
+@app.post("/admin/auth")
+async def admin_auth(request: Request):
+    body = await request.json()
+    if not _check_password(body):
+        return JSONResponse({"error": "wrong password"}, status_code=401)
+    return JSONResponse({"ok": True})
+
+
+@app.post("/admin/clear-guestbook")
+async def admin_clear_guestbook(request: Request):
+    body = await request.json()
+    if not _check_password(body):
+        return JSONResponse({"error": "wrong password"}, status_code=401)
+    _save_guestbook([])
+    return JSONResponse({"ok": True})
+
+
+@app.post("/admin/clear-artwork")
+async def admin_clear_artwork(request: Request):
+    body = await request.json()
+    if not _check_password(body):
+        return JSONResponse({"error": "wrong password"}, status_code=401)
+    _save_artwork([])
+    return JSONResponse({"ok": True})
+
+
+@app.post("/admin/set-home")
+async def admin_set_home(request: Request):
+    global _is_home
+    body = await request.json()
+    if not _check_password(body):
+        return JSONResponse({"error": "wrong password"}, status_code=401)
+    _is_home = True
+    _save_home_status(True)
+    return JSONResponse({"home": True})
+
+
+@app.post("/admin/set-away")
+async def admin_set_away(request: Request):
+    global _is_home
+    body = await request.json()
+    if not _check_password(body):
+        return JSONResponse({"error": "wrong password"}, status_code=401)
     _is_home = False
     _save_home_status(False)
     return JSONResponse({"home": False})

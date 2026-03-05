@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LiveDoodle // Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --amber:  #ffb300;
+      --teal:   #00e5ff;
+      --coral:  #ff4a2a;
+      --green:  #39ff14;
+      --purple: #bf5fff;
+      --bg:     #0a0a0a;
+    }
+
+    html, body {
+      width: 100%; min-height: 100%;
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg);
+      color: #555;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #starfield {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.1) 3px,
+        rgba(0,0,0,0.1) 4px
+      );
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    #page {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 540px;
+      padding: 44px 20px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    #meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    #wordmark {
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--teal);
+      opacity: 0.5;
+    }
+
+    #back {
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #555;
+      text-decoration: none;
+    }
+    #back:hover { color: #888; }
+
+    h1 {
+      font-size: clamp(36px, 10vw, 56px);
+      font-weight: normal;
+      letter-spacing: -0.01em;
+      line-height: 0.9;
+      text-transform: uppercase;
+      color: var(--amber);
+      text-shadow: 0 0 18px rgba(255,179,0,0.45), 0 0 54px rgba(255,179,0,0.1);
+    }
+
+    .rule {
+      height: 1px;
+      background: linear-gradient(90deg, rgba(255,179,0,0.25), transparent);
+    }
+
+    /* Lock section */
+    #lock {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .field-label {
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #555;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    input[type="password"] {
+      width: 100%;
+      background: #0d0d0d;
+      border: 1px solid #222;
+      color: #888;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+      padding: 10px 12px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input[type="password"]:focus {
+      border-color: var(--amber);
+      box-shadow: 0 0 8px rgba(255,179,0,0.2);
+      color: #bbb;
+    }
+
+    #unlock-btn {
+      padding: 14px 20px;
+      background: var(--bg);
+      border: 2px solid var(--amber);
+      color: var(--amber);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 14px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 0 12px rgba(255,179,0,0.3);
+      transition: opacity 0.1s;
+    }
+    #unlock-btn:active { opacity: 0.7; }
+
+    #lock-status {
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--coral);
+      min-height: 14px;
+    }
+
+    /* Admin panel */
+    #panel {
+      display: none;
+      flex-direction: column;
+      gap: 24px;
+    }
+    #panel.visible { display: flex; }
+
+    .section-label {
+      font-size: 9px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--amber);
+      opacity: 0.6;
+      margin-bottom: 10px;
+    }
+
+    /* Camera */
+    #camera-preview {
+      width: 100%;
+      aspect-ratio: 4/3;
+      background: #030303;
+      border: 1px solid #111;
+      display: block;
+      object-fit: contain;
+    }
+
+    #camera-status {
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-top: 8px;
+    }
+    #camera-status.online { color: var(--green); }
+    #camera-status.offline { color: var(--coral); }
+
+    /* Presence */
+    #presence-btns {
+      display: flex;
+      gap: 12px;
+    }
+
+    .presence-btn {
+      flex: 1;
+      padding: 14px 10px;
+      background: var(--bg);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.1s, box-shadow 0.15s;
+    }
+    .presence-btn:active { opacity: 0.7; }
+
+    #btn-home {
+      border: 2px solid var(--green);
+      color: var(--green);
+      box-shadow: 0 0 10px rgba(57,255,20,0.2);
+    }
+    #btn-home:hover { box-shadow: 0 0 18px rgba(57,255,20,0.4); }
+    #btn-home.active {
+      background: rgba(57,255,20,0.08);
+      box-shadow: 0 0 20px rgba(57,255,20,0.5);
+    }
+
+    #btn-away {
+      border: 2px solid var(--amber);
+      color: var(--amber);
+      box-shadow: 0 0 10px rgba(255,179,0,0.2);
+    }
+    #btn-away:hover { box-shadow: 0 0 18px rgba(255,179,0,0.4); }
+    #btn-away.active {
+      background: rgba(255,179,0,0.08);
+      box-shadow: 0 0 20px rgba(255,179,0,0.5);
+    }
+
+    #presence-status {
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--green);
+      min-height: 14px;
+      margin-top: 6px;
+    }
+
+    /* Data */
+    .data-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border: 1px solid #1a1a1a;
+    }
+
+    .data-label {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #555;
+    }
+
+    .clear-btn {
+      padding: 8px 16px;
+      background: var(--bg);
+      border: 1px solid var(--coral);
+      color: var(--coral);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.1s, box-shadow 0.15s;
+    }
+    .clear-btn:hover { box-shadow: 0 0 10px rgba(255,74,42,0.35); }
+    .clear-btn:active { opacity: 0.7; }
+
+    .data-status {
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--green);
+      min-height: 12px;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+<canvas id="starfield"></canvas>
+<div id="page">
+
+  <div id="meta">
+    <span id="wordmark">LiveDoodle</span>
+    <a id="back" href="/">&#8592; HOME</a>
+  </div>
+
+  <h1>Admin</h1>
+
+  <div class="rule"></div>
+
+  <div id="lock">
+    <div>
+      <label class="field-label" for="pw-input">Password</label>
+      <input id="pw-input" type="password" autocomplete="off" />
+    </div>
+    <button id="unlock-btn">UNLOCK</button>
+    <div id="lock-status"></div>
+  </div>
+
+  <div id="panel">
+
+    <div class="rule"></div>
+
+    <!-- Camera -->
+    <div>
+      <div class="section-label">// Camera</div>
+      <img id="camera-preview" src="" alt="camera feed" />
+      <div id="camera-status" class="offline">Checking...</div>
+    </div>
+
+    <div class="rule"></div>
+
+    <!-- Presence -->
+    <div>
+      <div class="section-label">// Presence</div>
+      <div id="presence-btns">
+        <button class="presence-btn" id="btn-home">I AM HOME</button>
+        <button class="presence-btn" id="btn-away">I AM AWAY</button>
+      </div>
+      <div id="presence-status"></div>
+    </div>
+
+    <div class="rule"></div>
+
+    <!-- Data -->
+    <div>
+      <div class="section-label">// Clear Data</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div>
+          <div class="data-row">
+            <span class="data-label">Guestbook</span>
+            <button class="clear-btn" id="clear-guestbook">CLEAR</button>
+          </div>
+          <div class="data-status" id="status-guestbook"></div>
+        </div>
+        <div>
+          <div class="data-row">
+            <span class="data-label">Past Artwork</span>
+            <button class="clear-btn" id="clear-artwork">CLEAR</button>
+          </div>
+          <div class="data-status" id="status-artwork"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+  let pw = '';
+
+  // Unlock
+  document.getElementById('unlock-btn').addEventListener('click', async () => {
+    pw = document.getElementById('pw-input').value;
+    const status = document.getElementById('lock-status');
+    try {
+      const r = await fetch('/admin/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw }),
+      });
+      if (r.ok) {
+        document.getElementById('lock').style.display = 'none';
+        document.getElementById('panel').classList.add('visible');
+        startCamera();
+        fetchPresence();
+      } else {
+        status.textContent = 'Wrong password.';
+        pw = '';
+      }
+    } catch (_) {
+      status.textContent = 'Network error.';
+      pw = '';
+    }
+  });
+
+  document.getElementById('pw-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('unlock-btn').click();
+  });
+
+  // Camera
+  let cameraInterval = null;
+  function startCamera() {
+    const img = document.getElementById('camera-preview');
+    const statusEl = document.getElementById('camera-status');
+    function refresh() {
+      const next = new Image();
+      next.onload = () => {
+        img.src = next.src;
+        statusEl.textContent = 'Online';
+        statusEl.className = 'online';
+      };
+      next.onerror = () => {
+        statusEl.textContent = 'Offline';
+        statusEl.className = 'offline';
+      };
+      next.src = '/snapshot?' + Date.now();
+    }
+    refresh();
+    cameraInterval = setInterval(refresh, 1000);
+  }
+
+  // Presence
+  async function fetchPresence() {
+    try {
+      const r = await fetch('/status');
+      // /status doesn't expose is_home, so check home page instead
+    } catch (_) {}
+    // Set active state based on current home page render
+    try {
+      const r = await fetch('/');
+      const html = await r.text();
+      const isHome = html.includes('class="home"');
+      setPresenceActive(isHome);
+    } catch (_) {}
+  }
+
+  function setPresenceActive(isHome) {
+    document.getElementById('btn-home').classList.toggle('active', isHome);
+    document.getElementById('btn-away').classList.toggle('active', !isHome);
+  }
+
+  document.getElementById('btn-home').addEventListener('click', async () => {
+    const statusEl = document.getElementById('presence-status');
+    try {
+      const r = await fetch('/admin/set-home', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw }),
+      });
+      if (r.ok) { setPresenceActive(true); statusEl.textContent = 'Updated.'; }
+      else { statusEl.textContent = 'Error.'; }
+    } catch (_) { statusEl.textContent = 'Network error.'; }
+    setTimeout(() => statusEl.textContent = '', 2000);
+  });
+
+  document.getElementById('btn-away').addEventListener('click', async () => {
+    const statusEl = document.getElementById('presence-status');
+    try {
+      const r = await fetch('/admin/set-away', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw }),
+      });
+      if (r.ok) { setPresenceActive(false); statusEl.textContent = 'Updated.'; }
+      else { statusEl.textContent = 'Error.'; }
+    } catch (_) { statusEl.textContent = 'Network error.'; }
+    setTimeout(() => statusEl.textContent = '', 2000);
+  });
+
+  // Clear data
+  async function clearData(endpoint, statusId) {
+    const statusEl = document.getElementById(statusId);
+    if (!confirm('Are you sure? This cannot be undone.')) return;
+    try {
+      const r = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw }),
+      });
+      if (r.ok) { statusEl.textContent = 'Cleared.'; }
+      else { statusEl.textContent = 'Error.'; }
+    } catch (_) { statusEl.textContent = 'Network error.'; }
+    setTimeout(() => statusEl.textContent = '', 3000);
+  }
+
+  document.getElementById('clear-guestbook').addEventListener('click', () =>
+    clearData('/admin/clear-guestbook', 'status-guestbook'));
+  document.getElementById('clear-artwork').addEventListener('click', () =>
+    clearData('/admin/clear-artwork', 'status-artwork'));
+</script>
+
+<script>
+  const sf = document.getElementById('starfield');
+  const sfCtx = sf.getContext('2d');
+  const SFCOLORS = ['#ffb300', '#00e5ff', '#ff4a2a', '#39ff14', '#bf5fff'];
+  const SZ = 3, N = 40;
+  function sfResize() { sf.width = window.innerWidth; sf.height = window.innerHeight; }
+  sfResize();
+  window.addEventListener('resize', sfResize);
+  const pixels = Array.from({ length: N }, () => ({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    speed: 0.3 + Math.random() * 0.6,
+    color: SFCOLORS[Math.floor(Math.random() * SFCOLORS.length)],
+    opacity: 0.08 + Math.random() * 0.22,
+  }));
+  (function tick() {
+    sfCtx.clearRect(0, 0, sf.width, sf.height);
+    for (const p of pixels) {
+      sfCtx.globalAlpha = p.opacity;
+      sfCtx.fillStyle = p.color;
+      sfCtx.fillRect(Math.round(p.x), Math.round(p.y), SZ, SZ);
+      p.y -= p.speed;
+      if (p.y < -SZ) { p.y = sf.height + SZ; p.x = Math.random() * sf.width; p.color = SFCOLORS[Math.floor(Math.random() * SFCOLORS.length)]; }
+    }
+    sfCtx.globalAlpha = 1;
+    requestAnimationFrame(tick);
+  })();
+</script>
+</body>
+</html>
