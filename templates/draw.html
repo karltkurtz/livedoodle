@@ -304,6 +304,18 @@
       gap: 32px;
     }
 
+    #size-preview {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 44px;
+    }
+
+    #size-dot-cur {
+      border-radius: 50%;
+      background: rgba(255,255,255,0.35);
+    }
+
     #size-row {
       display: flex;
       align-items: center;
@@ -553,6 +565,9 @@
   </div>
 
   <div id="controls">
+    <div id="size-preview">
+      <div id="size-dot-cur"></div>
+    </div>
     <div id="size-row">
       <span id="size-label">SIZE</span>
       <input id="brush-size" type="range" min="1" max="40" value="6" />
@@ -697,7 +712,19 @@
 
   // ── Brush size ──
   const brushSlider = document.getElementById("brush-size");
-  brushSlider.addEventListener("input", () => { brushSize = parseInt(brushSlider.value); });
+  const sizeDotCur = document.getElementById("size-dot-cur");
+
+  function updateSizeDot() {
+    sizeDotCur.style.width  = brushSize + "px";
+    sizeDotCur.style.height = brushSize + "px";
+  }
+
+  brushSlider.addEventListener("input", () => {
+    brushSize = parseInt(brushSlider.value);
+    updateSizeDot();
+  });
+
+  updateSizeDot();
 
   // ── Eraser ──
   const eraserBtn = document.getElementById("eraser-btn");
