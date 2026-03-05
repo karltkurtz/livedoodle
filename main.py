@@ -107,6 +107,10 @@ class ConnectionManager:
             ip = _get_ws_ip(websocket)
             self._client_ips[id(websocket)] = ip
             asyncio.create_task(_lookup_geo(ip))
+            if self.history:
+                await websocket.send_text(
+                    json.dumps({"type": "sync", "history": self.history})
+                )
         elif role == "display":
             self.display_clients.append(websocket)
             await websocket.send_text(
@@ -124,7 +128,7 @@ class ConnectionManager:
         if message["type"] in ("stroke", "stamp"):
             self.history.append(message)
 
-    async def end_session(self, websocket: WebSocket, name: str, duration: int, clear_display: bool = True):
+    async def end_session(self, websocket: WebSocket, name: str, duration: int, clear_display: bool = True, clear_history: bool = True):
         if not self.history:
             return
         strokes = list(self.history)
@@ -145,7 +149,8 @@ class ConnectionManager:
             entries = entries[-MAX_ARTWORK:]
         _save_artwork(entries)
 
-        self.history.clear()
+        if clear_history:
+            self.history.clear()
         if clear_display:
             await self.broadcast_to_displays({"type": "clear"})
 
@@ -206,7 +211,7 @@ async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
                 elif message["type"] == "finish":
                     name = str(message.get("name", "Anonymous")).strip() or "Anonymous"
                     duration = int(message.get("duration", 0))
-                    await manager.end_session(websocket, name, duration, clear_display=False)
+                    await manager.end_session(websocket, name, duration, clear_display=False, clear_history=False)
                 elif message["type"] == "redraw":
                     manager.history = [m for m in message.get("history", []) if m.get("type") in ("stroke", "stamp")]
                     await manager.broadcast_to_displays({"type": "sync", "history": manager.history})

@@ -209,7 +209,6 @@
     }
 
     button:active { opacity: 0.7; }
-    button:disabled { cursor: default; opacity: 1; }
 
     #eraser-btn.active {
       border-color: var(--teal);
@@ -245,8 +244,8 @@
       box-shadow: 0 0 14px rgba(57,255,20,0.55);
     }
 
-    /* ── Name prompt modal ── */
-    #modal-overlay {
+    /* ── Modals (shared) ── */
+    .modal-overlay {
       display: none;
       position: fixed;
       inset: 0;
@@ -256,12 +255,10 @@
       justify-content: center;
     }
 
-    #modal-overlay.visible { display: flex; }
+    .modal-overlay.visible { display: flex; }
 
-    #modal {
+    .modal {
       background: #0a0a0a;
-      border: 1px solid var(--green);
-      box-shadow: 0 0 24px rgba(57,255,20,0.25);
       padding: 24px 20px 20px;
       width: min(320px, 90vw);
       display: flex;
@@ -269,12 +266,44 @@
       gap: 14px;
     }
 
-    #modal-title {
+    .modal-title {
       font-size: 12px;
       letter-spacing: 0.2em;
       text-transform: uppercase;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    /* Sign modal — green border */
+    #sign-overlay .modal {
+      border: 1px solid var(--green);
+      box-shadow: 0 0 24px rgba(57,255,20,0.25);
+    }
+
+    #sign-overlay .modal-title {
       color: var(--green);
       text-shadow: 0 0 8px rgba(57,255,20,0.4);
+    }
+
+    /* Keep/erase modal — amber border */
+    #keeperase-overlay .modal {
+      border: 1px solid var(--amber);
+      box-shadow: 0 0 24px rgba(255,179,0,0.2);
+    }
+
+    #keeperase-overlay .modal-title {
+      color: var(--amber);
+      text-shadow: 0 0 8px rgba(255,179,0,0.4);
+    }
+
+    #keeperase-overlay .modal-subtitle {
+      font-size: 11px;
+      color: #555;
+      letter-spacing: 0.08em;
     }
 
     #name-input {
@@ -293,12 +322,6 @@
     #name-input:focus {
       border-color: var(--green);
       box-shadow: 0 0 8px rgba(57,255,20,0.25);
-    }
-
-    #modal-actions {
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
     }
   </style>
 </head>
@@ -340,13 +363,25 @@
   </div>
 </div>
 
-<div id="modal-overlay">
-  <div id="modal">
-    <div id="modal-title">Finished? Sign Your Doodle</div>
+<!-- Sign your doodle modal -->
+<div id="sign-overlay" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-title">Finished? Sign Your Doodle</div>
     <input id="name-input" type="text" maxlength="40" placeholder="Anonymous" autocomplete="off" spellcheck="false" />
-    <div id="modal-actions">
+    <div class="modal-actions">
       <button id="cancel-btn" style="border-color:var(--amber);color:var(--amber);box-shadow:0 0 8px rgba(255,179,0,0.3);">NOT DONE</button>
       <button id="submit-btn" style="border-color:var(--green);color:var(--green);box-shadow:0 0 8px rgba(57,255,20,0.3);">SUBMIT</button>
+    </div>
+  </div>
+</div>
+
+<!-- Keep / erase existing art modal -->
+<div id="keeperase-overlay" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-subtitle" id="keeperase-overlay">Keep existing art, or start fresh?</div>
+    <div class="modal-actions">
+      <button id="erase-btn" style="border-color:var(--amber);color:var(--amber);box-shadow:0 0 8px rgba(255,179,0,0.3);">ERASE</button>
+      <button id="keep-btn" style="border-color:var(--green);color:var(--green);box-shadow:0 0 8px rgba(57,255,20,0.3);">KEEP</button>
     </div>
   </div>
 </div>
@@ -363,15 +398,17 @@
   const ctx = canvas.getContext("2d");
   const wrapper = document.getElementById("canvas-wrapper");
 
-  // undoStack: array of actions. Each action is:
-  //   {type: "gesture", segments: [...stroke objects]}  — one drag gesture
-  //   {type: "stamp", data, x, y, w, h}                — one stamp placement
+  // baseHistory: flat list of strokes/stamps received from server (non-undoable)
+  // undoStack:   array of actions added this session (undoable)
+  //   each action: {type:"gesture", segments:[...stroke objects]}
+  //             or {type:"stamp", data, x, y, w, h}
+  let baseHistory = [];
   const undoStack = [];
-  let currentGesture = null;  // accumulates segments during a drag
-  const imageCache = {};      // data URL → HTMLImageElement
+  let currentGesture = null;
+  const imageCache = {};  // data URL → HTMLImageElement
 
   function flatHistory() {
-    const result = [];
+    const result = [...baseHistory];
     for (const action of undoStack) {
       if (action.type === "gesture") {
         for (const seg of action.segments) result.push(seg);
@@ -478,6 +515,7 @@
 
   // ── Clear ──
   document.getElementById("clear-btn").addEventListener("click", () => {
+    baseHistory = [];
     undoStack.length = 0;
     updateUndoBtn();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -568,7 +606,17 @@
 
   function connect() {
     ws = new WebSocket(WS_URL);
+    ws.onmessage = e => handleServerMessage(JSON.parse(e.data));
     ws.onclose = () => setTimeout(connect, 2000);
+  }
+
+  function handleServerMessage(msg) {
+    if (msg.type === "sync" && msg.history && msg.history.length > 0) {
+      baseHistory = msg.history;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      replayHistory();
+      document.getElementById("keeperase-overlay").classList.add("visible");
+    }
   }
 
   function send(msg) {
@@ -579,28 +627,44 @@
 
   connect();
 
-  // ── DONE / name prompt ──
+  // ── Keep / Erase popup ──
+  document.getElementById("keep-btn").addEventListener("click", () => {
+    document.getElementById("keeperase-overlay").classList.remove("visible");
+  });
+
+  document.getElementById("erase-btn").addEventListener("click", () => {
+    baseHistory = [];
+    undoStack.length = 0;
+    updateUndoBtn();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    send({ type: "redraw", history: [] });
+    document.getElementById("keeperase-overlay").classList.remove("visible");
+  });
+
+  // ── DONE / sign modal ──
   const sessionStart = Date.now();
-  const modalOverlay = document.getElementById("modal-overlay");
-  const nameInput    = document.getElementById("name-input");
+  const signOverlay = document.getElementById("sign-overlay");
+  const nameInput   = document.getElementById("name-input");
 
   document.getElementById("done-btn").addEventListener("click", () => {
     nameInput.value = "";
-    modalOverlay.classList.add("visible");
+    signOverlay.classList.add("visible");
     setTimeout(() => nameInput.focus(), 50);
   });
 
   document.getElementById("cancel-btn").addEventListener("click", () => {
-    modalOverlay.classList.remove("visible");
+    signOverlay.classList.remove("visible");
   });
 
   function submitDoodle() {
     const name = nameInput.value.trim() || "Anonymous";
     const duration = Math.round((Date.now() - sessionStart) / 1000);
+    // Promote everything to baseHistory so it persists as non-undoable
+    baseHistory = flatHistory();
     undoStack.length = 0;
     updateUndoBtn();
     send({ type: "finish", name, duration });
-    modalOverlay.classList.remove("visible");
+    signOverlay.classList.remove("visible");
     window.location.href = "/";
   }
 
@@ -608,7 +672,7 @@
 
   nameInput.addEventListener("keydown", e => {
     if (e.key === "Enter") submitDoodle();
-    if (e.key === "Escape") modalOverlay.classList.remove("visible");
+    if (e.key === "Escape") signOverlay.classList.remove("visible");
   });
 
   // ── Image Stamp ──
