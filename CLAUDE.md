@@ -19,175 +19,198 @@ No build step. No Node. No npm.
 
 ## Architecture
 
-Single-file FastAPI server (`main.py`) with two HTML templates.
+Single-file FastAPI server (`main.py`) with Jinja2 templates.
 
 ### Routes
 
 | Route | Description |
 |-------|-------------|
-| `GET /` | Home page — branding, live snapshot feed, DRAW! button |
+| `GET /` | Home page — branding, live snapshot feed, DRAW! button, presence status |
 | `GET /draw` | Mobile drawing canvas |
 | `GET /display` | Pi A kiosk display (zero UI) |
+| `GET /about` | About page — what it is, how it works, hardware setup |
+| `GET /donate` | Donate page — build story, BOM, Venmo button (placeholder) |
+| `GET /artwork` | Past artwork gallery |
+| `GET /artwork/entries` | JSON array of saved artwork entries |
+| `GET /guestbook` | Guestbook page with sign form |
+| `GET /guestbook/entries` | JSON array of guestbook entries |
+| `POST /guestbook/sign` | Submit a guestbook entry |
+| `GET /admin` | Password-protected admin page |
+| `POST /admin/auth` | Verify admin password |
+| `POST /admin/clear-guestbook` | Clear all guestbook entries |
+| `POST /admin/clear-artwork` | Clear all artwork entries |
+| `POST /admin/set-home` | Set presence to "I AM HOME" |
+| `POST /admin/set-away` | Set presence to "I AM AWAY" |
 | `GET /snapshot` | Latest JPEG frame from camera Pi (polled every 100ms) |
+| `GET /status` | JSON: `{drawing, session_elapsed}` — polled every 500ms by home page |
 | `WS /ws?role=draw\|display` | Single WebSocket endpoint |
 
 ### WebSocket Protocol
 
 Clients connect to `/ws` with a `role` query param. The server's `ConnectionManager` class tracks two sets:
-- **draw clients** — send stroke/clear commands; server relays to display clients
+- **draw clients** — send stroke/stamp/finish/clear/redraw commands; server relays to display clients
 - **display clients** — receive relayed strokes; receive full history sync on connect
 
 **Message types:**
 
 ```json
 // Draw → server → display clients
-{"type": "stroke", "color": "#ff0000", "size": 6, "x0": 0.1, "y0": 0.2, "x1": 0.15, "y1": 0.25}
+{"type": "stroke", "color": "#ff0000", "size": 0.015, "x0": 0.1, "y0": 0.2, "x1": 0.15, "y1": 0.25}
 
-// Draw → server → display clients (server clears history)
+// Draw → server → display clients
+{"type": "stamp", "data": "<dataURL>", "x": 0.5, "y": 0.5, "w": 0.4, "h": 0.24}
+
+// Draw → server (save artwork, don't clear board)
+{"type": "finish", "name": "Karl", "duration": 183}
+
+// Draw → server (save artwork + clear board)
+{"type": "clear", "name": "Karl", "duration": 183}
+
+// Draw → server (replace history, resync displays)
+{"type": "redraw", "history": [...]}
+
+// Server → new display/draw client (history replay)
+{"type": "sync", "history": [...stroke/stamp objects...]}
+
+// Server → display clients (clear canvas)
 {"type": "clear"}
-
-// Server → new display client only (history replay)
-{"type": "sync", "history": [...stroke objects...]}
 ```
 
-### Coordinates
+### Coordinates and Sizing
 
-Strokes use **normalized coordinates** (0.0–1.0). The drawing client divides by its canvas dimensions before sending; the display client multiplies by its canvas dimensions when rendering. This makes phone canvas size and Pi display size irrelevant.
+All stroke coordinates and stamp positions/sizes use **normalized values** (0.0–1.0) relative to canvas dimensions.
+
+**Stroke size** is also normalized: stored as `brushSize / canvas.width`. When rendering, multiply by the target canvas width. This ensures consistent visual thickness across phone, Pi display, and artwork cards.
+
+**Backward compatibility:** Old strokes (before normalization) have `size >= 1` (absolute pixels). New strokes have `size < 1` (normalized). Renderers check `s.size >= 1 ? s.size : s.size * canvasWidth`.
 
 ### State
 
-`ConnectionManager.history` holds all strokes since the last clear. It's unbounded but resets on clear. New display clients receive the full history as a single `sync` message and replay it immediately.
-
-### Planned: Additional WS Message Types
-
-```json
-// Draw → server (submit artwork; server saves to artwork_history.json)
-{"type": "finish", "name": "Karl"}
-
-// Draw → server (same as clear but also triggers artwork save before clearing)
-{"type": "clear"}
-```
-
-On `finish` or `clear`, the server calls `end_session(websocket, name)` which:
-1. Snapshots current `history` for that connection
-2. Looks up geo from `_geo_cache` using the connection's IP
-3. Appends entry to `artwork_history.json` (max 50, drop oldest)
-4. Clears history and broadcasts clear to display clients
+`ConnectionManager.history` holds all strokes/stamps since the last clear. Resets on clear. New clients receive the full history as a single `sync` message.
 
 ## Files
 
 ```
-main.py                  # FastAPI app, ConnectionManager, all routes + WS endpoint
-templates/home.html      # Public home page (branding, snapshot feed, DRAW! button)
-templates/draw.html      # Self-contained drawing page (canvas, toolbar, WS client)
-templates/display.html   # Self-contained kiosk page (canvas, WS client, no UI)
-templates/artwork.html   # [planned] Gallery page — fetches /artwork/entries, replays strokes on canvases
-artwork_history.json     # [planned] Flat JSON array of saved artwork entries (max 50)
-requirements.txt         # fastapi, uvicorn[standard], jinja2, python-multipart
-livedoodle.service       # systemd unit for Pi A (/home/karltkurtz/livedoodle, port 8000)
-website-aesthetic.rtf    # Design brief — retro arcade / lo-fi pixel art aesthetic
+main.py                    # FastAPI app, ConnectionManager, all routes + WS endpoint
+templates/home.html        # Public home page
+templates/draw.html        # Mobile drawing page (canvas, toolbar, WS client)
+templates/display.html     # Pi kiosk page (canvas, WS client, no UI)
+templates/artwork.html     # Past artwork gallery
+templates/guestbook.html   # Guestbook with sign form
+templates/about.html       # About page
+templates/donate.html      # Donate page (Venmo placeholder — needs real username)
+templates/admin.html       # Password-protected admin panel
+artwork_history.json       # Flat JSON array of saved artwork entries (max 25)
+guestbook.json             # Flat JSON array of guestbook entries (max 200)
+home_status.json           # Persisted presence status: {"home": true|false}
+requirements.txt           # fastapi, uvicorn[standard], jinja2, python-multipart
+livedoodle.service         # systemd unit for Pi A (/home/karltkurtz/livedoodle, port 8000)
+website-aesthetic.rtf      # Design brief — retro arcade / lo-fi pixel art aesthetic
 ```
 
 ## Visual Design
 
-**Aesthetic:** Retro arcade / lo-fi pixel art — 1980s computer terminal crossed with a neon-lit arcade cabinet. See `website-aesthetic.rtf` for the full brief.
+**Aesthetic:** Retro arcade / lo-fi pixel art — 1980s computer terminal crossed with a neon-lit arcade cabinet.
 
 **Rules:**
-- Font: `Share Tech Mono` (monospace) throughout all UI — no decorative or sans-serif fonts
+- Font: `Share Tech Mono` (monospace) throughout — no other fonts
 - Background: `#0a0a0a` (near-black)
-- Accent palette (amber, teal, coral, green, purple) — all saturated, used with `box-shadow` neon glows
-- Buttons: dark fill + vivid colored border + glow; no rounded pills, no gradients
-- Labels: ALL-CAPS, terse
-- Animations: pixel starfield (small squares drifting upward) on home page; cycling color animation (10s loop: amber → teal → coral → green → purple) on primary CTA; blinking dot on LIVE badge
-- Scanline overlay on home page via `repeating-linear-gradient`
+- All body/label/meta text: `#555` — this is the standard gray across all pages
+- Accent palette: `--amber: #ffb300`, `--teal: #00e5ff`, `--coral: #ff4a2a`, `--green: #39ff14`, `--purple: #bf5fff`
+- Buttons: dark fill + vivid colored border + `box-shadow` glow; no rounded corners, no gradients
+- Labels: ALL-CAPS, terse, `letter-spacing: 0.2em+`
+- Pixel starfield on every page: 40 × 3px squares drifting upward, drawn on a fixed `<canvas id="starfield">`
+- Scanline overlay via `body::before` `repeating-linear-gradient` on all pages
+- `#page` is always `position: relative; z-index: 1` to sit above the starfield
 - No shadows for depth, no gradients for realism — flat + glowing only
 
-**Per-page notes:**
-- `home.html`: starfield canvas in background, DRAW! button cycles through accent colors, corner-bracket frame around stream feed; dim stats row after actions showing visitor count + recent cities
-- `draw.html`: toolbar only (canvas stays white as drawing surface), amber top-border glow on toolbar, square swatches with glow on active, teal glow for ERASER active, coral glow for CLEAR hover; DONE button triggers name prompt then sends `{type:"finish", name}`
-- `artwork.html`: [planned] grid of past artwork canvases; each replays its stroke list; shows name, location, date
+**Per-page accent colors:**
+- `home.html`: amber h1, teal rule/wordmark, cycling DRAW! button
+- `draw.html`: amber toolbar border
+- `artwork.html`: green h1 + rule
+- `guestbook.html`: purple h1 + rule
+- `donate.html`: coral h1 + rule
+- `about.html`: teal h1 + rule
+- `admin.html`: amber h1 + rule
+
+**Home page specifics:**
+- Blinking coral dot before "LIVEDOODLE" wordmark (`#wordmark-dot`)
+- LIVE badge overlaid top-right of livestream (`position: absolute` inside `#stream-inner`)
+- Both blink dots synced via JS `animationDelay` at page load
+- Presence status (`#presence`) in meta row: "I AM HOME" (green) or "I AM AWAY" (amber) — rendered server-side via Jinja2
+- h1: `clamp(35px, 9.4vw, 59px)` — reduced ~33% from original
+- DRAW! button amber when busy (someone else drawing), shows countdown timer
+- Corner-bracket frame around livestream via `::before`/`::after` pseudo-elements on `#stream-frame` and `#stream-inner`
+
+**Draw page specifics:**
+- Timer bar below canvas, 36px coral countdown
+- Slider rail white, amber square thumb
+- Stamp buttons: REMOVE (coral) and KEEP (green)
+
+## Admin Page
+
+- URL: `/admin`
+- Password: stored server-side as `ADMIN_PASSWORD` in `main.py` — never in templates
+- JS stores password in memory after unlock; sends with each POST request
+- Sections: Camera preview (live, 1fps), Presence toggle, Clear Guestbook, Clear Artwork
+- Future: home/away toggle is already wired; admin page is the intended UI for it
+
+## Presence / Home Status
+
+- Stored in `home_status.json`, loaded on startup into `_is_home: bool`
+- Passed to `home.html` as Jinja2 template variable `is_home`
+- Toggle via `POST /admin/set-home` or `POST /admin/set-away` (password required)
+- Old unauthenticated `POST /set-home` and `POST /set-away` endpoints still exist — consider removing
 
 ## Hardware Context
 
-- **Pi A (server Pi):** Raspberry Pi 4, hostname `litebrite`, username `karltkurtz`. Runs the FastAPI server, 7" display attached. `/display` runs in Chromium kiosk mode fullscreen.
-- **Pi B (camera Pi):** Raspberry Pi 4 with HQ camera pointed at Pi A's display. Already streams — no code changes needed.
-- Both on Ethernet LAN. Exposed publicly via Cloudflare tunnel at `pigarage.com` → port 8000.
-- Server binds to `0.0.0.0` and uses `--proxy-headers` to respect `X-Forwarded-For` from Cloudflare.
+- **Pi A (server Pi):** Raspberry Pi 4, hostname `litebrite`, IP `10.0.0.81`, username `karltkurtz`. Runs FastAPI, 7" display. `/display` in Chromium kiosk mode.
+- **Pi B (camera Pi):** Raspberry Pi 4 with HQ camera at `http://10.0.0.8:8080/?action=snapshot`. No code needed.
+- Cloudflare tunnel → `pigarage.com` → port 8000.
+- Server uses `--proxy-headers` for `CF-Connecting-IP` / `X-Forwarded-For`.
+- Hostname `litebrite` does NOT resolve from Mac — always use IP `10.0.0.81` for SCP/SSH.
 
 ## Deploy Flow
 
-**Workflow:** Make code changes → open Safari to preview → user says "commit" → commit + push + deploy.
+**Workflow:** Make changes → SCP template(s) to Pi for instant preview → user says "commit" → commit + push. Restart only needed when `main.py` changes.
 
 - NEVER auto-commit. Only commit when user explicitly says "commit".
-- After making changes, always open Safari to the relevant pigarage.com page for review.
-- After user approves (says "commit"), do all three steps automatically: commit, push, deploy.
+- After changes, open Safari to the relevant `pigarage.com` page.
+- SCP templates directly for preview (Jinja2 serves from disk, no restart needed).
+- `main.py` changes require `sudo systemctl restart livedoodle`.
 
 ```bash
-# 1. Commit and push from Mac
+# SCP a template (instant, no restart)
+scp templates/home.html karltkurtz@10.0.0.81:~/livedoodle/templates/home.html
+
+# SCP main.py + restart
+scp main.py karltkurtz@10.0.0.81:~/livedoodle/main.py
+ssh karltkurtz@10.0.0.81 "sudo systemctl restart livedoodle"
+
+# Commit + push (after user approves)
 git add <specific files> && git commit -m "message"
 git push
 
-# 2. Deploy to Pi A (use IP — hostname 'litebrite' doesn't resolve from Mac)
+# Deploy from Pi (full pull)
 ssh karltkurtz@10.0.0.81 "cd ~/livedoodle && git pull && sudo systemctl restart livedoodle"
-# If Pi has local changes, stash first:
+# If Pi has local changes:
 ssh karltkurtz@10.0.0.81 "cd ~/livedoodle && git stash && git pull && sudo systemctl restart livedoodle"
 ```
 
+⚠️ **SCP gotcha:** When SCP-ing multiple files to different destinations, use separate SCP commands. `scp file1 file2 host:dir/` puts both in the same directory — a template sent to `~/livedoodle/` instead of `~/livedoodle/templates/` will be silently ignored.
+
 ## Pi A Service
 
-The systemd service is at `livedoodle.service`. It is already installed and enabled on Pi A.
-
 ```bash
-# Re-install after changes to the service file
 sudo cp livedoodle.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable livedoodle
-sudo systemctl start livedoodle
+sudo systemctl daemon-reload && sudo systemctl enable livedoodle && sudo systemctl start livedoodle
+sudo journalctl -u livedoodle -f
 ```
-
-Logs: `sudo journalctl -u livedoodle -f`
-
-## Planned Features
-
-### 1. Visitor Count + Geolocation
-Add to `main.py`:
-- `_get_client_ip(request)` — reads `CF-Connecting-IP` → `X-Forwarded-For` → `request.client.host`
-- `_lookup_geo(ip)` — `GET http://ip-api.com/json/{ip}?fields=city,regionName,country`, 3s timeout, fallback `""`, cached in `_geo_cache: dict[str, str]`
-- `_unique_ips: set[str]` — unique visitor count
-- `_recent_locations: list[str]` — newest first, capped at 20; format "City, Region, Country"
-- Skip geo for private/loopback IPs
-- Pass `visitor_count` and `recent_locations` to `home.html`
-
-Display in `home.html`: dim stats row after `#actions` — `"NNN VISITORS // CITY • CITY • CITY"`. Font 8px, green count at low opacity, very dark location text.
-
-### 2. Past Artwork Gallery
-Add to `main.py`:
-- `end_session(websocket, name)` — snapshots history, looks up geo from cache by connection IP, appends to `artwork_history.json` (max 50 entries, drop oldest), clears board
-- Handle `{type: "finish", name}` WS message from draw clients → call `end_session()`
-- Handle `{type: "clear"}` → also call `end_session()` before clearing (save anonymous if strokes exist)
-- `GET /artwork/entries` — returns `artwork_history.json` as JSON
-- `GET /artwork` — serves `artwork.html`
-
-Entry format:
-```json
-{"strokes": [...], "name": "Karl", "location": "Austin, Texas, US", "time": 1709123456.789, "duration": 183}
-```
-
-Add to `draw.html`:
-- DONE button → name prompt popup → sends `{type: "finish", name}` over WS
-- Track session start time client-side for `duration`
-
-Add `templates/artwork.html`: fetches `/artwork/entries`, renders each as a canvas by replaying strokes. Shows name, location, date. Same retro aesthetic.
 
 ## Pi A Chromium Kiosk
 
-Autostart config lives at the **user level** (system-level path does not exist on this Pi OS version):
+Autostart at user level: `~/.config/lxsession/LXDE-pi/autostart`
 
-```
-~/.config/lxsession/LXDE-pi/autostart
-```
-
-Contents:
 ```
 @xset s off
 @xset -dpms
@@ -195,9 +218,14 @@ Contents:
 @bash -c 'sleep 5 && chromium --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble http://localhost:8000/display'
 ```
 
-The `sleep 5` is required — without it, Chromium launches before the FastAPI server is ready and silently fails. If Chromium is ever not showing on the Pi display, launch it manually:
+`sleep 5` is required — Chromium launches before FastAPI is ready without it. Manual launch:
 
 ```bash
-ssh karltkurtz@10.0.0.81 "DISPLAY=:0 chromium --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble http://localhost:8000/display &"
+ssh karltkurtz@10.0.0.81 "DISPLAY=:0 chromium --kiosk http://localhost:8000/display &"
 ```
 
+## Planned / TODO
+
+- Replace Venmo placeholder in `donate.html` with real username
+- Remove or protect old unauthenticated `POST /set-home` and `POST /set-away` endpoints
+- Visitor count + geolocation display on home page (see original design notes in git history)
