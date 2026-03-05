@@ -23,6 +23,7 @@ templates = Jinja2Templates(directory="templates")
 _latest_frame: bytes | None = None
 _geo_cache: dict[str, str] = {}
 _is_home: bool = True
+_last_location: str = ""
 
 
 def _load_home_status() -> bool:
@@ -120,6 +121,13 @@ def _save_artwork(entries: list):
         json.dump(entries, f)
 
 
+async def _record_view_location(ip: str):
+    global _last_location
+    loc = await _lookup_geo(ip)
+    if loc:
+        _last_location = loc
+
+
 async def _poll_camera():
     global _latest_frame
     async with httpx.AsyncClient(timeout=2.0) as client:
@@ -144,6 +152,7 @@ class ConnectionManager:
     def __init__(self):
         self.draw_clients: list[WebSocket] = []
         self.display_clients: list[WebSocket] = []
+        self.view_clients: list[WebSocket] = []
         self.history: list[dict] = []
         self._client_ips: dict[int, str] = {}  # id(websocket) → ip
         self.session_start: float | None = None
@@ -166,6 +175,10 @@ class ConnectionManager:
             await websocket.send_text(
                 json.dumps({"type": "sync", "history": self.history})
             )
+        elif role == "view":
+            self.view_clients.append(websocket)
+            ip = _get_ws_ip(websocket)
+            asyncio.create_task(_record_view_location(ip))
 
     def disconnect(self, websocket: WebSocket, role: str):
         if role == "draw" and websocket in self.draw_clients:
@@ -175,6 +188,8 @@ class ConnectionManager:
                 self.session_start = None
         elif role == "display" and websocket in self.display_clients:
             self.display_clients.remove(websocket)
+        elif role == "view" and websocket in self.view_clients:
+            self.view_clients.remove(websocket)
 
     def update_history(self, message: dict):
         if message["type"] in ("stroke", "stamp"):
@@ -321,7 +336,8 @@ async def display_page(request: Request):
 async def status():
     drawing = len(manager.draw_clients) > 0
     elapsed = (time.time() - manager.session_start) if manager.session_start is not None else None
-    return JSONResponse({"drawing": drawing, "session_elapsed": elapsed})
+    viewers = len(manager.view_clients) + len(manager.draw_clients)
+    return JSONResponse({"drawing": drawing, "session_elapsed": elapsed, "viewers": viewers, "last_location": _last_location})
 
 
 @app.get("/snapshot")

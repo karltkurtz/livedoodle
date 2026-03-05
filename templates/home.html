@@ -212,6 +212,17 @@
       z-index: 3;
     }
 
+    #viewer-count {
+      position: absolute;
+      bottom: 8px; left: 10px;
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      color: #fff;
+      opacity: 0.4;
+      z-index: 3;
+      text-transform: uppercase;
+    }
+
     /* Actions */
     #actions {
       display: flex;
@@ -315,6 +326,18 @@
     }
 
     .nav-btn:active { opacity: 0.7; }
+
+    #last-visit {
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #555;
+      text-align: center;
+    }
+
+    #last-visit-location {
+      color: #888;
+    }
   </style>
 </head>
 <body>
@@ -333,7 +356,6 @@
   <div id="hero">
     <h1>Draw.<br><span class="accent">Live.</span></h1>
     <p id="desc">// real strokes &middot; real screen &middot; no signup</p>
-    <p id="welcome">// draw something &mdash; I'll see it in real life.</p>
   </div>
 
   <div class="rule"></div>
@@ -347,13 +369,14 @@
       <div id="stream-wrapper">
         <img id="stream" src="/snapshot" alt="" />
         <span id="feed-label">FEED_01 // LIVE</span>
+        <span id="viewer-count">👀 watching: <span id="viewer-num">—</span></span>
       </div>
     </div>
   </div>
 
   <div id="actions">
     <a id="draw-btn" href="/draw">DRAW!</a>
-    <p id="hint">renders on a<br>7" raspberry pi screen<br>in my house</p>
+    <p id="hint">renders on a 7"<br>raspberry pi screen<br>in my house</p>
   </div>
 
   <div id="nav">
@@ -362,6 +385,8 @@
     <a class="nav-btn" href="/guestbook" style="border-color:var(--purple); color:var(--purple);box-shadow:0 0 8px rgba(191,95,255,0.25);">GUESTBOOK</a>
     <a class="nav-btn" href="/artwork"  style="border-color:var(--green);  color:var(--green); box-shadow:0 0 8px rgba(57,255,20,0.25);">PAST ARTWORK</a>
   </div>
+
+  <p id="last-visit" style="display:none">🌐 most recent visit from: <span id="last-visit-location"></span></p>
 
 
 </div>
@@ -406,15 +431,31 @@
     el.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
   }
 
+  const viewerNumEl = document.getElementById("viewer-num");
+  const lastVisitEl = document.getElementById("last-visit");
+  const lastVisitLocEl = document.getElementById("last-visit-location");
+
   async function pollStatus() {
     try {
       const r = await fetch("/status");
-      const { drawing, session_elapsed } = await r.json();
+      const { drawing, session_elapsed, viewers, last_location } = await r.json();
       updateDrawBtn(drawing, session_elapsed);
+      if (viewers !== undefined) viewerNumEl.textContent = viewers;
+      if (last_location) {
+        lastVisitLocEl.textContent = last_location;
+        lastVisitEl.style.display = "";
+      }
     } catch (_) {}
   }
   pollStatus();
   setInterval(pollStatus, 500);
+
+  // Register as a viewer so the server can count active home page visitors
+  const VIEW_WS_URL = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?role=view`;
+  (function connectView() {
+    const vws = new WebSocket(VIEW_WS_URL);
+    vws.onclose = () => setTimeout(connectView, 3000);
+  })();
 
   // Pixel starfield
   const sf = document.getElementById("starfield");
