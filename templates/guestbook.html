@@ -28,6 +28,13 @@
       align-items: center;
     }
 
+    #starfield {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
     body::before {
       content: '';
       position: fixed;
@@ -44,6 +51,8 @@
     }
 
     #page {
+      position: relative;
+      z-index: 1;
       width: 100%;
       max-width: 540px;
       padding: 44px 20px 60px;
@@ -196,6 +205,7 @@
   </style>
 </head>
 <body>
+<canvas id="starfield"></canvas>
 <div id="page">
 
   <div id="meta">
@@ -308,6 +318,34 @@
 
     btn.disabled = false;
   });
+</script>
+<script>
+  const sf = document.getElementById("starfield");
+  const sfCtx = sf.getContext("2d");
+  const SFCOLORS = ["#ffb300", "#00e5ff", "#ff4a2a", "#39ff14", "#bf5fff"];
+  const SZ = 3, N = 40;
+  function sfResize() { sf.width = window.innerWidth; sf.height = window.innerHeight; }
+  sfResize();
+  window.addEventListener("resize", sfResize);
+  const pixels = Array.from({ length: N }, () => ({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    speed: 0.3 + Math.random() * 0.6,
+    color: SFCOLORS[Math.floor(Math.random() * SFCOLORS.length)],
+    opacity: 0.08 + Math.random() * 0.22,
+  }));
+  (function tick() {
+    sfCtx.clearRect(0, 0, sf.width, sf.height);
+    for (const p of pixels) {
+      sfCtx.globalAlpha = p.opacity;
+      sfCtx.fillStyle = p.color;
+      sfCtx.fillRect(Math.round(p.x), Math.round(p.y), SZ, SZ);
+      p.y -= p.speed;
+      if (p.y < -SZ) { p.y = sf.height + SZ; p.x = Math.random() * sf.width; p.color = SFCOLORS[Math.floor(Math.random() * SFCOLORS.length)]; }
+    }
+    sfCtx.globalAlpha = 1;
+    requestAnimationFrame(tick);
+  })();
 </script>
 </body>
 </html>
