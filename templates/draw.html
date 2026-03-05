@@ -161,6 +161,7 @@
       gap: 7px;
       align-items: center;
       flex-wrap: wrap;
+      justify-content: center;
     }
 
     .swatch {
@@ -179,8 +180,21 @@
 
     #controls {
       display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #size-row {
+      display: flex;
       align-items: center;
       gap: 10px;
+    }
+
+    #btn-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      justify-content: center;
     }
 
     #size-label {
@@ -391,14 +405,18 @@
   <div id="swatches"></div>
 
   <div id="controls">
-    <span id="size-label">SIZE</span>
-    <input id="brush-size" type="range" min="1" max="40" value="6" />
-    <button id="eraser-btn">ERASER</button>
-    <button id="undo-btn">UNDO</button>
-    <button id="clear-btn">CLEAR</button>
-    <input id="stamp-input" type="file" accept="image/*" style="display:none" />
-    <button id="stamp-btn">IMAGE</button>
-    <button id="done-btn">DONE</button>
+    <div id="size-row">
+      <span id="size-label">SIZE</span>
+      <input id="brush-size" type="range" min="1" max="40" value="6" />
+    </div>
+    <div id="btn-row">
+      <button id="eraser-btn">ERASER</button>
+      <button id="undo-btn">UNDO</button>
+      <button id="clear-btn">CLEAR</button>
+      <input id="stamp-input" type="file" accept="image/*" style="display:none" />
+      <button id="stamp-btn">IMAGE</button>
+      <button id="done-btn">DONE</button>
+    </div>
   </div>
 </div>
 
@@ -430,6 +448,9 @@
     "#1a1a1a", "#e63333", "#e67c33", "#e6d633",
     "#33c44a", "#3399e6", "#7c33e6", "#e633b8",
     "#ffffff", "#888888",
+    "#cc0000", "#8b4513", "#e6a817", "#00cc66",
+    "#00ccdd", "#0044cc", "#550099", "#ff66aa",
+    "#444444", "#ffccaa",
   ];
 
   // ── Canvas setup ──
