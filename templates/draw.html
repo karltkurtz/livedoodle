@@ -1084,10 +1084,6 @@
       brushMode = btn.dataset.mode;
       document.querySelectorAll(".brush-mode-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
-      brushPicker.classList.remove("open");
-      brushToggleBtn.classList.remove("open");
-      // Show active mode in button label when non-solid
-      brushToggleBtn.textContent = brushMode === "solid" ? "BRUSH" : `BRUSH: ${brushMode.toUpperCase()}`;
     });
   });
 
