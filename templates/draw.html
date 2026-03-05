@@ -127,10 +127,45 @@
     }
 
     #toolbar.stamp-mode #brand,
+    #toolbar.stamp-mode #shapes-section,
     #toolbar.stamp-mode #swatches,
     #toolbar.stamp-mode #controls {
       opacity: 0.25;
       pointer-events: none;
+    }
+
+    #shapes-section {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    #shapes-section { align-items: center; }
+
+    #shape-toggle-btn {
+      border-color: var(--purple);
+      color: var(--purple);
+      box-shadow: 0 0 8px rgba(191,95,255,0.3);
+      width: 120px;
+    }
+
+    #shape-toggle-btn.open {
+      box-shadow: 0 0 14px rgba(191,95,255,0.6);
+    }
+
+    #shape-picker {
+      display: none;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+    }
+
+    #shape-picker.open { display: flex; }
+
+    .shape-btn:hover {
+      border-color: var(--purple);
+      color: var(--purple);
+      box-shadow: 0 0 8px rgba(191,95,255,0.3);
     }
 
     /* ── Toolbar ── */
@@ -463,6 +498,18 @@
     <div id="brand-left">
       <div id="dot"></div>
       <span id="brand-name">LiveDoodle</span>
+    </div>
+  </div>
+
+  <div id="shapes-section">
+    <button id="shape-toggle-btn">SHAPES</button>
+    <div id="shape-picker">
+      <button class="shape-btn" data-shape="circle">CIRCLE</button>
+      <button class="shape-btn" data-shape="square">SQUARE</button>
+      <button class="shape-btn" data-shape="triangle">TRI</button>
+      <button class="shape-btn" data-shape="star">STAR</button>
+      <button class="shape-btn" data-shape="diamond">DIAMOND</button>
+      <button class="shape-btn" data-shape="hexagon">HEX</button>
     </div>
   </div>
 
@@ -950,6 +997,70 @@
     stampControls.style.display = "none";
     toolbar.classList.remove("stamp-mode");
     stampData = null;
+  });
+
+  // ── Shape picker ──
+  const shapeToggleBtn = document.getElementById("shape-toggle-btn");
+  const shapePicker    = document.getElementById("shape-picker");
+
+  shapeToggleBtn.addEventListener("click", () => {
+    shapePicker.classList.toggle("open");
+    shapeToggleBtn.classList.toggle("open", shapePicker.classList.contains("open"));
+  });
+
+  function renderShape(type, color) {
+    const SIZE = 400, PAD = 30, mid = SIZE / 2, r = (SIZE - PAD * 2) / 2;
+    const off = document.createElement("canvas");
+    off.width = off.height = SIZE;
+    const c = off.getContext("2d");
+    c.fillStyle = color;
+    c.beginPath();
+    if (type === "circle") {
+      c.arc(mid, mid, r, 0, Math.PI * 2);
+    } else if (type === "square") {
+      c.rect(PAD, PAD, SIZE - PAD * 2, SIZE - PAD * 2);
+    } else if (type === "triangle") {
+      c.moveTo(mid, PAD); c.lineTo(SIZE - PAD, SIZE - PAD); c.lineTo(PAD, SIZE - PAD); c.closePath();
+    } else if (type === "star") {
+      const inner = r * 0.4;
+      for (let i = 0; i < 10; i++) {
+        const a = (i * Math.PI / 5) - Math.PI / 2;
+        const rr = i % 2 === 0 ? r : inner;
+        i === 0 ? c.moveTo(mid + rr * Math.cos(a), mid + rr * Math.sin(a))
+                : c.lineTo(mid + rr * Math.cos(a), mid + rr * Math.sin(a));
+      }
+      c.closePath();
+    } else if (type === "diamond") {
+      c.moveTo(mid, PAD); c.lineTo(SIZE - PAD, mid); c.lineTo(mid, SIZE - PAD); c.lineTo(PAD, mid); c.closePath();
+    } else if (type === "hexagon") {
+      for (let i = 0; i < 6; i++) {
+        const a = (i * Math.PI / 3) - Math.PI / 6;
+        i === 0 ? c.moveTo(mid + r * Math.cos(a), mid + r * Math.sin(a))
+                : c.lineTo(mid + r * Math.cos(a), mid + r * Math.sin(a));
+      }
+      c.closePath();
+    }
+    c.fill();
+    return off.toDataURL("image/png");
+  }
+
+  document.querySelectorAll(".shape-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const dataUrl = renderShape(btn.dataset.shape, currentColor);
+      stampData = dataUrl;
+      stampImg.src = dataUrl;
+      const cw = canvas.offsetWidth, ch = canvas.offsetHeight;
+      const sz = cw * 0.3;
+      stampW = sz; stampH = sz;
+      stampCX = cw / 2; stampCY = ch / 2;
+      stampR = 0;
+      updateStampPos();
+      stampOverlay.classList.add("active");
+      stampControls.style.display = "flex";
+      toolbar.classList.add("stamp-mode");
+      shapePicker.classList.remove("open");
+      shapeToggleBtn.classList.remove("open");
+    });
   });
 
   // ── Session timer (5 minutes) ──
