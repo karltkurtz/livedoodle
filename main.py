@@ -194,7 +194,7 @@ class ConnectionManager:
             self.view_clients.remove(websocket)
 
     def update_history(self, message: dict):
-        if message["type"] in ("stroke", "stamp"):
+        if message["type"] in ("stroke", "stamp", "fill"):
             self.history.append(message)
 
     async def end_session(self, websocket: WebSocket, name: str, duration: int, clear_display: bool = True, clear_history: bool = True):
@@ -521,7 +521,7 @@ async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
             if role == "draw":
                 if message["type"] == "heartbeat":
                     _last_visitor_time = time.time()
-                elif message["type"] in ("stroke", "stamp"):
+                elif message["type"] in ("stroke", "stamp", "fill"):
                     if not manager.history:
                         await manager.broadcast_to_displays({"type": "clear"})
                     manager.update_history(message)
@@ -531,7 +531,7 @@ async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
                     duration = int(message.get("duration", 0))
                     await manager.end_session(websocket, name, duration, clear_display=False, clear_history=False)
                 elif message["type"] == "redraw":
-                    manager.history = [m for m in message.get("history", []) if m.get("type") in ("stroke", "stamp")]
+                    manager.history = [m for m in message.get("history", []) if m.get("type") in ("stroke", "stamp", "fill")]
                     await manager.broadcast_to_displays({"type": "sync", "history": manager.history})
                 elif message["type"] == "clear":
                     name = str(message.get("name", "Anonymous")).strip() or "Anonymous"

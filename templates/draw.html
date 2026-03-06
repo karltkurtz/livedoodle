@@ -400,6 +400,12 @@
       box-shadow: 0 0 10px rgba(0,229,255,0.4);
     }
 
+    #fill-btn.active {
+      border-color: var(--green);
+      color: var(--green);
+      box-shadow: 0 0 10px rgba(57,255,20,0.4);
+    }
+
     #undo-btn.enabled {
       border-color: var(--amber);
       color: var(--amber);
@@ -574,6 +580,7 @@
     </div>
     <div id="btn-row">
       <button id="eraser-btn">ERASER</button>
+      <button id="fill-btn">FILL</button>
       <button id="undo-btn">UNDO</button>
       <button id="clear-btn">CLEAR</button>
       <input id="stamp-input" type="file" accept="image/*" style="display:none" />
@@ -595,6 +602,26 @@
     </div>
   </div>
 </div>
+
+<!-- Fill coming soon toast -->
+<div id="fill-toast" style="
+  display:none;
+  position:fixed;
+  bottom:120px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#0a0a0a;
+  border:1px solid var(--amber);
+  box-shadow:0 0 14px rgba(255,179,0,0.3);
+  color:var(--amber);
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;
+  letter-spacing:0.2em;
+  text-transform:uppercase;
+  padding:10px 16px;
+  white-space:nowrap;
+  z-index:200;
+">THIS FEATURE IS BEING WORKED ON.</div>
 
 <!-- Keep / erase existing art modal -->
 <div id="keeperase-overlay" class="modal-overlay">
@@ -637,7 +664,7 @@
     for (const action of undoStack) {
       if (action.type === "gesture") {
         for (const seg of action.segments) result.push(seg);
-      } else if (action.type === "stamp") {
+      } else if (action.type === "stamp" || action.type === "fill") {
         result.push(action);
       }
     }
@@ -673,6 +700,8 @@
         );
       } else if (s.type === "stamp") {
         replayStamp(s);
+      } else if (s.type === "fill") {
+        floodFill(s.x * canvas.width, s.y * canvas.height, s.color);
       }
     }
   }
@@ -689,6 +718,7 @@
   // ── State ──
   let currentColor = COLORS[0];
   let isErasing = false;
+  let isFilling = false;
   let brushSize = 11;
   let brushMode = "solid";
   let drawing = false;
@@ -704,7 +734,9 @@
     el.addEventListener("click", () => {
       currentColor = color;
       isErasing = false;
+      isFilling = false;
       eraserBtn.classList.remove("active");
+      fillBtn.classList.remove("active");
       document.querySelectorAll(".swatch").forEach(s => s.classList.remove("active"));
       el.classList.add("active");
     });
@@ -731,11 +763,56 @@
   const eraserBtn = document.getElementById("eraser-btn");
   eraserBtn.addEventListener("click", () => {
     isErasing = !isErasing;
+    isFilling = false;
     eraserBtn.classList.toggle("active", isErasing);
+    fillBtn.classList.remove("active");
     if (isErasing) {
       document.querySelectorAll(".swatch").forEach(s => s.classList.remove("active"));
     }
   });
+
+  // ── Fill (coming soon) ──
+  const fillBtn = document.getElementById("fill-btn");
+  let fillToastTimer = null;
+  fillBtn.addEventListener("click", () => {
+    const toast = document.getElementById("fill-toast");
+    toast.style.display = "block";
+    clearTimeout(fillToastTimer);
+    fillToastTimer = setTimeout(() => { toast.style.display = "none"; }, 2500);
+  });
+
+  function floodFill(cx, cy, color) {
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    const w = canvas.width, h = canvas.height;
+    const px = Math.round(Math.max(0, Math.min(w - 1, cx)));
+    const py = Math.round(Math.max(0, Math.min(h - 1, cy)));
+    const idx = (py * w + px) * 4;
+    const tr = data[idx], tg = data[idx+1], tb = data[idx+2], ta = data[idx+3];
+    const fr = parseInt(color.slice(1,3), 16);
+    const fg = parseInt(color.slice(3,5), 16);
+    const fb = parseInt(color.slice(5,7), 16);
+    if (tr === fr && tg === fg && tb === fb && ta === 255) return;
+    const TOLERANCE = 32;
+    function matches(i) {
+      return Math.abs(data[i]-tr) + Math.abs(data[i+1]-tg) + Math.abs(data[i+2]-tb) + Math.abs(data[i+3]-ta) <= TOLERANCE;
+    }
+    const stack = [px + py * w];
+    const visited = new Uint8Array(w * h);
+    while (stack.length > 0) {
+      const pos = stack.pop();
+      if (visited[pos]) continue;
+      visited[pos] = 1;
+      if (!matches(pos * 4)) continue;
+      data[pos*4] = fr; data[pos*4+1] = fg; data[pos*4+2] = fb; data[pos*4+3] = 255;
+      const x = pos % w, y = (pos / w) | 0;
+      if (x > 0)   stack.push(pos - 1);
+      if (x < w-1) stack.push(pos + 1);
+      if (y > 0)   stack.push(pos - w);
+      if (y < h-1) stack.push(pos + w);
+    }
+    ctx.putImageData(imageData, 0, 0);
+  }
 
   // ── Undo ──
   const undoBtn = document.getElementById("undo-btn");
@@ -803,6 +880,15 @@
 
   function startDraw(x, y) {
     if (stampOverlay.classList.contains("active")) return;
+    if (isFilling) {
+      const color = getColor();
+      floodFill(x, y, color);
+      const fillMsg = { type: "fill", x: x / canvas.width, y: y / canvas.height, color };
+      undoStack.push(fillMsg);
+      updateUndoBtn();
+      send(fillMsg);
+      return;
+    }
     drawing = true;
     prevX = x; prevY = y;
     currentGesture = { type: "gesture", segments: [] };
