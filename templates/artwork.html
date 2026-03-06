@@ -427,19 +427,21 @@
   if (editMode) {
     document.body.classList.add("edit-mode");
     document.getElementById("edit-bar").style.display = "flex";
-    localStorage.setItem("artworkEditMode", "1");
+    fetch("/artwork/edit-start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: adminPw }) });
     const backBtn = document.getElementById("back");
     backBtn.removeAttribute("href");
     backBtn.style.opacity = "0.3";
     backBtn.style.cursor = "not-allowed";
     backBtn.style.pointerEvents = "none";
     // Clean up on any exit (tab close, accidental navigation, etc.)
-    window.addEventListener("pagehide", () => localStorage.removeItem("artworkEditMode"));
+    window.addEventListener("pagehide", () => {
+      navigator.sendBeacon("/artwork/edit-end", new Blob([JSON.stringify({ password: adminPw })], { type: "application/json" }));
+    });
   }
 
   document.getElementById("done-edit-btn").addEventListener("click", () => {
     sessionStorage.removeItem("adminPw");
-    localStorage.removeItem("artworkEditMode");
+    fetch("/artwork/edit-end", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: adminPw }) });
     window.location.href = "/artwork";
   });
 

@@ -436,13 +436,14 @@
   async function pollStatus() {
     try {
       const r = await fetch("/status");
-      const { drawing, session_elapsed, viewers, last_location } = await r.json();
+      const { drawing, session_elapsed, viewers, last_location, artwork_editing } = await r.json();
       updateDrawBtn(drawing, session_elapsed);
       if (viewers !== undefined) viewerNumEl.textContent = viewers;
       if (last_location) {
         lastVisitLocEl.textContent = last_location;
         lastVisitEl.style.display = "";
       }
+      updateArtworkBtn(artwork_editing);
     } catch (_) {}
   }
   pollStatus();
@@ -529,10 +530,10 @@
   document.getElementById('live-dot').style.animationDelay = blinkDelay;
   document.getElementById('wordmark-dot').style.animationDelay = blinkDelay;
 
-  // Disable PAST ARTWORK button while admin edit mode is active in another tab
+  // Disable PAST ARTWORK button while admin edit mode is active (server-side flag, works cross-device)
   const artworkBtn = document.getElementById("artwork-btn");
-  function updateArtworkBtn() {
-    if (localStorage.getItem("artworkEditMode")) {
+  function updateArtworkBtn(editing) {
+    if (editing) {
       artworkBtn.removeAttribute("href");
       artworkBtn.style.opacity = "0.4";
       artworkBtn.style.cursor = "not-allowed";
@@ -546,8 +547,6 @@
       artworkBtn.textContent = "PAST ARTWORK";
     }
   }
-  updateArtworkBtn();
-  window.addEventListener("storage", updateArtworkBtn);
 </script>
 </body>
 </html>

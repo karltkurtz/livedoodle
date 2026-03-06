@@ -25,6 +25,7 @@ _geo_cache: dict[str, str] = {}
 _is_home: bool = True
 _last_location: str = ""
 _last_visitor_time: float = 0.0
+_artwork_editing: bool = False
 
 
 def _load_home_status() -> bool:
@@ -311,6 +312,26 @@ async def admin_clear_artwork(request: Request):
     return JSONResponse({"ok": True})
 
 
+@app.post("/artwork/edit-start")
+async def artwork_edit_start(request: Request):
+    global _artwork_editing
+    body = await request.json()
+    if not _check_password(body):
+        return JSONResponse({"error": "wrong password"}, status_code=401)
+    _artwork_editing = True
+    return JSONResponse({"ok": True})
+
+
+@app.post("/artwork/edit-end")
+async def artwork_edit_end(request: Request):
+    global _artwork_editing
+    body = await request.json()
+    if not _check_password(body):
+        return JSONResponse({"error": "wrong password"}, status_code=401)
+    _artwork_editing = False
+    return JSONResponse({"ok": True})
+
+
 @app.post("/artwork/delete")
 async def artwork_delete(request: Request):
     body = await request.json()
@@ -410,7 +431,7 @@ async def status():
     drawing = len(manager.draw_clients) > 0
     elapsed = (time.time() - manager.session_start) if manager.session_start is not None else None
     viewers = len(manager.view_clients) + len(manager.draw_clients)
-    return JSONResponse({"drawing": drawing, "session_elapsed": elapsed, "viewers": viewers, "last_location": _last_location})
+    return JSONResponse({"drawing": drawing, "session_elapsed": elapsed, "viewers": viewers, "last_location": _last_location, "artwork_editing": _artwork_editing})
 
 
 @app.get("/snapshot")
