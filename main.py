@@ -215,6 +215,14 @@ class ConnectionManager:
         if len(entries) > MAX_ARTWORK:
             entries = entries[-MAX_ARTWORK:]
         _save_artwork(entries)
+        mins, secs = divmod(duration, 60)
+        time_str = f"{mins}m {secs}s" if mins else f"{secs}s"
+        loc_str = f" from {location}" if location else ""
+        asyncio.create_task(_notify_ntfy(
+            f"{name}{loc_str} — {time_str}",
+            NTFY_TOPIC,
+            "New drawing submitted",
+        ))
 
         if clear_history:
             self.history.clear()
@@ -314,6 +322,20 @@ async def admin_set_away(request: Request):
 
 
 CAMERA_CONTROL_URL = "http://10.0.0.8:8080/controls"
+NTFY_TOPIC = "livedoodle-drawing-submission"
+NTFY_GUESTBOOK_TOPIC = "livedoodle-guestbook-submission"
+
+
+async def _notify_ntfy(message: str, topic: str, title: str):
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(
+                f"https://ntfy.sh/{topic}",
+                content=message.encode(),
+                headers={"Title": title},
+            )
+    except Exception:
+        pass
 
 
 @app.post("/admin/camera-control")
@@ -423,6 +445,12 @@ async def guestbook_sign(request: Request):
     if len(entries) > MAX_GUESTBOOK:
         entries = entries[-MAX_GUESTBOOK:]
     _save_guestbook(entries)
+    loc_str = f" from {location}" if location else ""
+    asyncio.create_task(_notify_ntfy(
+        f"{name}{loc_str}: {message[:100]}",
+        NTFY_GUESTBOOK_TOPIC,
+        "New guestbook entry",
+    ))
     return JSONResponse({"ok": True})
 
 

@@ -95,7 +95,7 @@ main.py                    # FastAPI app, ConnectionManager, all routes + WS end
 templates/home.html        # Public home page
 templates/draw.html        # Mobile drawing page (canvas, toolbar, WS client)
 templates/display.html     # Pi kiosk page (canvas, WS client, no UI)
-templates/artwork.html     # Past artwork gallery
+templates/artwork.html     # Past artwork gallery (with lightbox on click)
 templates/guestbook.html   # Guestbook with sign form
 templates/about.html       # About page
 templates/donate.html      # Donate page (Venmo placeholder — needs real username)
@@ -103,7 +103,8 @@ templates/admin.html       # Password-protected admin panel
 artwork_history.json       # Flat JSON array of saved artwork entries (max 25)
 guestbook.json             # Flat JSON array of guestbook entries (max 200)
 home_status.json           # Persisted presence status: {"home": true|false}
-requirements.txt           # fastapi, uvicorn[standard], jinja2, python-multipart
+og-image.png               # Open Graph image served at /og-image.png (639×507)
+requirements.txt           # fastapi, uvicorn[standard], jinja2, python-multipart, httpx
 livedoodle.service         # systemd unit for Pi A (/home/karltkurtz/livedoodle, port 8000)
 website-aesthetic.rtf      # Design brief — retro arcade / lo-fi pixel art aesthetic
 ```
@@ -152,8 +153,9 @@ website-aesthetic.rtf      # Design brief — retro arcade / lo-fi pixel art aes
 - URL: `/admin`
 - Password: stored server-side as `ADMIN_PASSWORD` in `main.py` — never in templates
 - JS stores password in memory after unlock; sends with each POST request
-- Sections: Camera preview (live, 1fps), Presence toggle, Clear Guestbook, Clear Artwork
-- Future: home/away toggle is already wired; admin page is the intended UI for it
+- Sections: Camera preview (live, 1fps), Presence toggle, Camera controls, Clear Guestbook, Clear Artwork
+- Camera controls: brightness, contrast, saturation, exposure (μs), gain — 120ms debounced; proxied via `POST /admin/camera-control` → Pi B's `/controls` endpoint
+- AUTO RESET button sends `{"auto": true}` to re-enable auto-exposure on Pi B (AE is disabled when any manual control is set)
 
 ## Presence / Home Status
 
@@ -165,10 +167,11 @@ website-aesthetic.rtf      # Design brief — retro arcade / lo-fi pixel art aes
 ## Hardware Context
 
 - **Pi A (server Pi):** Raspberry Pi 4, hostname `litebrite`, IP `10.0.0.81`, username `karltkurtz`. Runs FastAPI, 7" display. `/display` in Chromium kiosk mode.
-- **Pi B (camera Pi):** Raspberry Pi 4 with HQ camera at `http://10.0.0.8:8080/?action=snapshot`. No code needed.
+- **Pi B (camera Pi):** Raspberry Pi 4 with HQ camera at `http://10.0.0.8:8080/?action=snapshot`. Runs `stream.py` with picamera2. Has a `/controls` POST endpoint accepting JSON with lowercase keys: `brightness`, `contrast`, `saturation`, `exposure`, `gain`, `auto`. Sending `{"auto": true}` recreates the camera to re-enable auto-exposure.
 - Cloudflare tunnel → `pigarage.com` → port 8000.
 - Server uses `--proxy-headers` for `CF-Connecting-IP` / `X-Forwarded-For`.
 - Hostname `litebrite` does NOT resolve from Mac — always use IP `10.0.0.81` for SCP/SSH.
+- SSH key: `~/.ssh/pixelwave_key` works for both Pi A (10.0.0.81) and Pi B (10.0.0.8). Always use `-i ~/.ssh/pixelwave_key` for SSH/SCP to either Pi.
 
 ## Deploy Flow
 
@@ -181,20 +184,20 @@ website-aesthetic.rtf      # Design brief — retro arcade / lo-fi pixel art aes
 
 ```bash
 # SCP a template (instant, no restart)
-scp templates/home.html karltkurtz@10.0.0.81:~/livedoodle/templates/home.html
+scp -i ~/.ssh/pixelwave_key templates/home.html karltkurtz@10.0.0.81:~/livedoodle/templates/home.html
 
 # SCP main.py + restart
-scp main.py karltkurtz@10.0.0.81:~/livedoodle/main.py
-ssh karltkurtz@10.0.0.81 "sudo systemctl restart livedoodle"
+scp -i ~/.ssh/pixelwave_key main.py karltkurtz@10.0.0.81:~/livedoodle/main.py
+ssh -i ~/.ssh/pixelwave_key karltkurtz@10.0.0.81 "sudo systemctl restart livedoodle"
 
 # Commit + push (after user approves)
 git add <specific files> && git commit -m "message"
 git push
 
 # Deploy from Pi (full pull)
-ssh karltkurtz@10.0.0.81 "cd ~/livedoodle && git pull && sudo systemctl restart livedoodle"
-# If Pi has local changes:
-ssh karltkurtz@10.0.0.81 "cd ~/livedoodle && git stash && git pull && sudo systemctl restart livedoodle"
+ssh -i ~/.ssh/pixelwave_key karltkurtz@10.0.0.81 "cd ~/livedoodle && git pull && sudo systemctl restart livedoodle"
+# Pi ALWAYS has local changes from SCPs — use git stash first:
+ssh -i ~/.ssh/pixelwave_key karltkurtz@10.0.0.81 "cd ~/livedoodle && git stash && git pull && sudo systemctl restart livedoodle"
 ```
 
 ⚠️ **SCP gotcha:** When SCP-ing multiple files to different destinations, use separate SCP commands. `scp file1 file2 host:dir/` puts both in the same directory — a template sent to `~/livedoodle/` instead of `~/livedoodle/templates/` will be silently ignored.
@@ -208,6 +211,8 @@ sudo journalctl -u livedoodle -f
 ```
 
 ## Pi A Chromium Kiosk
+
+When the Pi boots, it loads the drawing canvas (`/display`) in Chromium kiosk mode — this is the intended behavior. The `/display` page shows the live artboard with full stroke history replay.
 
 Autostart at user level: `~/.config/lxsession/LXDE-pi/autostart`
 
@@ -223,6 +228,20 @@ Autostart at user level: `~/.config/lxsession/LXDE-pi/autostart`
 ```bash
 ssh karltkurtz@10.0.0.81 "DISPLAY=:0 chromium --kiosk http://localhost:8000/display &"
 ```
+
+## Push Notifications (ntfy)
+
+Drawing and guestbook submissions fire fire-and-forget push notifications via `https://ntfy.sh`.
+
+- **Drawing submitted:** topic `livedoodle-drawing-submission`, title "New drawing submitted", body: `Name from Location — Xm Ys`
+- **Guestbook signed:** topic `livedoodle-guestbook-submission`, title "New guestbook entry", body: `Name from Location: message text...`
+- Implemented in `main.py` via `_notify_ntfy(message, topic, title)` called with `asyncio.create_task` (never blocks the WS handler)
+- `httpx` is already a dependency (used for camera polling) — no new packages needed
+
+## Open Graph
+
+- `og-image.png` (639×507) committed to repo and served at `/og-image.png`
+- OG + Twitter card meta tags in `home.html` point to `https://pigarage.com/og-image.png`
 
 ## Planned / TODO
 
