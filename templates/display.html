@@ -226,6 +226,7 @@
   const ss = document.getElementById("screensaver");
   const ssCanvas = document.getElementById("ss-starfield");
   const ssCtx = ssCanvas.getContext("2d");
+  const ssContent = document.getElementById("ss-content");
   let ssVisible = false;
   let ssRafId = null;
 
@@ -243,7 +244,7 @@
     ssCanvas.height = window.innerHeight;
   }
 
-  function animateSs() {
+  function animateSs(ts) {
     ssCtx.clearRect(0, 0, ssCanvas.width, ssCanvas.height);
     for (const s of ssStars) {
       s.y -= s.speed;
@@ -257,6 +258,14 @@
       );
     }
     ssCtx.globalAlpha = 1;
+
+    // Slow Lissajous drift — bounded so content never leaves the viewport
+    const maxX = Math.max(0, (window.innerWidth  - ssContent.offsetWidth)  / 2 - 16);
+    const maxY = Math.max(0, (window.innerHeight - ssContent.offsetHeight) / 2 - 16);
+    const tx = Math.sin(ts * 0.00025) * maxX;
+    const ty = Math.cos(ts * 0.00017) * maxY;
+    ssContent.style.transform = `translate(${tx}px, ${ty}px)`;
+
     ssRafId = requestAnimationFrame(animateSs);
   }
 
