@@ -427,10 +427,17 @@
   if (editMode) {
     document.body.classList.add("edit-mode");
     document.getElementById("edit-bar").style.display = "flex";
+    localStorage.setItem("artworkEditMode", "1");
+    const backBtn = document.getElementById("back");
+    backBtn.removeAttribute("href");
+    backBtn.style.opacity = "0.3";
+    backBtn.style.cursor = "not-allowed";
+    backBtn.style.pointerEvents = "none";
   }
 
   document.getElementById("done-edit-btn").addEventListener("click", () => {
     sessionStorage.removeItem("adminPw");
+    localStorage.removeItem("artworkEditMode");
     window.location.href = "/artwork";
   });
 
