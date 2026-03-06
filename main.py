@@ -370,6 +370,14 @@ async def snapshot():
     return Response(content=_latest_frame, media_type="image/jpeg")
 
 
+@app.get("/og-image.png")
+async def og_image():
+    if not os.path.exists("og-image.png"):
+        return Response(status_code=404)
+    with open("og-image.png", "rb") as f:
+        return Response(content=f.read(), media_type="image/png")
+
+
 @app.get("/artwork", response_class=HTMLResponse)
 async def artwork_page(request: Request):
     return templates.TemplateResponse("artwork.html", {"request": request})
