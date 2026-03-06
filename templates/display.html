@@ -60,6 +60,12 @@
       gap: 16px;
     }
 
+    #ss-title-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
     #ss-dot {
       width: 8px;
       height: 8px;
@@ -97,8 +103,10 @@
 <div id="screensaver">
   <canvas id="ss-starfield"></canvas>
   <div id="ss-content">
-    <div id="ss-dot"></div>
-    <div id="ss-title">LIVEDOODLE</div>
+    <div id="ss-title-row">
+      <div id="ss-dot"></div>
+      <div id="ss-title">LIVEDOODLE</div>
+    </div>
     <div id="ss-sub">PIGARAGE.COM &mdash; DRAW SOMETHING</div>
   </div>
 </div>
