@@ -4,14 +4,105 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LiveDoodle Display</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: white; }
     canvas { display: block; }
+
+    /* ── Screensaver ── */
+    #screensaver {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: #0a0a0a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 20px;
+      opacity: 0;
+      transition: opacity 1.5s ease;
+      pointer-events: none;
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    #screensaver.active { opacity: 1; }
+
+    #screensaver::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.18) 3px,
+        rgba(0,0,0,0.18) 4px
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    #ss-starfield {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+    }
+
+    #ss-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    #ss-dot {
+      width: 8px;
+      height: 8px;
+      background: #ff4a2a;
+      box-shadow: 0 0 8px #ff4a2a;
+      animation: ss-blink 1s step-end infinite;
+    }
+
+    @keyframes ss-blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+
+    #ss-title {
+      font-size: clamp(36px, 8vw, 72px);
+      letter-spacing: 0.25em;
+      color: #ffb300;
+      text-shadow: 0 0 20px rgba(255,179,0,0.5), 0 0 40px rgba(255,179,0,0.25);
+      text-transform: uppercase;
+    }
+
+    #ss-sub {
+      font-size: clamp(11px, 2vw, 16px);
+      letter-spacing: 0.3em;
+      color: #00e5ff;
+      text-shadow: 0 0 10px rgba(0,229,255,0.4);
+      text-transform: uppercase;
+    }
   </style>
 </head>
 <body>
 <canvas id="canvas"></canvas>
+
+<!-- Screensaver overlay -->
+<div id="screensaver">
+  <canvas id="ss-starfield"></canvas>
+  <div id="ss-content">
+    <div id="ss-dot"></div>
+    <div id="ss-title">LIVEDOODLE</div>
+    <div id="ss-sub">PIGARAGE.COM &mdash; DRAW SOMETHING</div>
+  </div>
+</div>
+
 <script>
   const canvas = document.getElementById("canvas");
   const ctx = canvas.getContext("2d");
@@ -121,6 +212,82 @@
   }
 
   connect();
+
+  // ── Screensaver ──
+  const IDLE_TIMEOUT_S = 20;
+  const ss = document.getElementById("screensaver");
+  const ssCanvas = document.getElementById("ss-starfield");
+  const ssCtx = ssCanvas.getContext("2d");
+  let ssVisible = false;
+  let ssRafId = null;
+
+  // Starfield: 40 × 3px squares drifting upward
+  const SS_COLORS = ["#ffb300", "#00e5ff", "#ff4a2a", "#39ff14", "#bf5fff"];
+  const ssStars = Array.from({ length: 40 }, () => ({
+    x: Math.random(),
+    y: Math.random(),
+    speed: 0.0003 + Math.random() * 0.0004,
+    color: SS_COLORS[Math.floor(Math.random() * SS_COLORS.length)],
+  }));
+
+  function resizeSsCanvas() {
+    ssCanvas.width  = window.innerWidth;
+    ssCanvas.height = window.innerHeight;
+  }
+
+  function animateSs() {
+    ssCtx.clearRect(0, 0, ssCanvas.width, ssCanvas.height);
+    for (const s of ssStars) {
+      s.y -= s.speed;
+      if (s.y < 0) { s.y = 1; s.x = Math.random(); }
+      ssCtx.fillStyle = s.color;
+      ssCtx.globalAlpha = 0.5;
+      ssCtx.fillRect(
+        Math.round(s.x * ssCanvas.width),
+        Math.round(s.y * ssCanvas.height),
+        3, 3
+      );
+    }
+    ssCtx.globalAlpha = 1;
+    ssRafId = requestAnimationFrame(animateSs);
+  }
+
+  function showScreensaver() {
+    if (ssVisible) return;
+    ssVisible = true;
+    resizeSsCanvas();
+    if (!ssRafId) animateSs();
+    ss.classList.add("active");
+  }
+
+  function hideScreensaver() {
+    if (!ssVisible) return;
+    ssVisible = false;
+    ss.classList.remove("active");
+    // Stop animation after fade completes
+    setTimeout(() => {
+      if (!ssVisible && ssRafId) {
+        cancelAnimationFrame(ssRafId);
+        ssRafId = null;
+      }
+    }, 1600);
+  }
+
+  async function checkActivity() {
+    try {
+      const r = await fetch("/activity");
+      const data = await r.json();
+      const age = data.last_visitor_time === 0
+        ? Infinity
+        : (Date.now() / 1000 - data.last_visitor_time);
+      if (age >= IDLE_TIMEOUT_S) showScreensaver();
+      else hideScreensaver();
+    } catch (_) {}
+  }
+
+  window.addEventListener("resize", resizeSsCanvas);
+  setInterval(checkActivity, 5000);
+  checkActivity();
 </script>
 </body>
 </html>

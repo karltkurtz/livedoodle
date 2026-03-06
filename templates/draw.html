@@ -889,6 +889,9 @@
 
   connect();
 
+  // ── Heartbeat (keeps screensaver away while draw page is open) ──
+  setInterval(() => send({ type: "heartbeat" }), 10000);
+
   // ── Keep / Erase popup ──
   document.getElementById("keep-btn").addEventListener("click", () => {
     document.getElementById("keeperase-overlay").classList.remove("visible");

@@ -24,6 +24,7 @@ _latest_frame: bytes | None = None
 _geo_cache: dict[str, str] = {}
 _is_home: bool = True
 _last_location: str = ""
+_last_visitor_time: float = 0.0
 
 
 def _load_home_status() -> bool:
@@ -390,6 +391,8 @@ async def display_page(request: Request):
 
 @app.get("/status")
 async def status():
+    global _last_visitor_time
+    _last_visitor_time = time.time()
     drawing = len(manager.draw_clients) > 0
     elapsed = (time.time() - manager.session_start) if manager.session_start is not None else None
     viewers = len(manager.view_clients) + len(manager.draw_clients)
@@ -465,15 +468,25 @@ async def guestbook_sign(request: Request):
     return JSONResponse({"ok": True})
 
 
+@app.get("/activity")
+async def activity():
+    return JSONResponse({"last_visitor_time": _last_visitor_time})
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
+    global _last_visitor_time
     await manager.connect(websocket, role)
+    if role == "draw":
+        _last_visitor_time = time.time()
     try:
         while True:
             data = await websocket.receive_text()
             message = json.loads(data)
             if role == "draw":
-                if message["type"] in ("stroke", "stamp"):
+                if message["type"] == "heartbeat":
+                    _last_visitor_time = time.time()
+                elif message["type"] in ("stroke", "stamp"):
                     if not manager.history:
                         await manager.broadcast_to_displays({"type": "clear"})
                     manager.update_history(message)
