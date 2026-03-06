@@ -30,8 +30,11 @@ Single-file FastAPI server (`main.py`) with Jinja2 templates.
 | `GET /display` | Pi A kiosk display (zero UI) |
 | `GET /about` | About page — what it is, how it works, hardware setup |
 | `GET /donate` | Donate page — build story, BOM, Venmo button (placeholder) |
-| `GET /artwork` | Past artwork gallery |
+| `GET /artwork` | Past artwork gallery; `?edit=1` activates admin edit mode |
 | `GET /artwork/entries` | JSON array of saved artwork entries |
+| `POST /artwork/delete` | Delete a single artwork entry by timestamp (password-protected) |
+| `POST /artwork/edit-start` | Set `_artwork_editing = True` (password-protected) |
+| `POST /artwork/edit-end` | Set `_artwork_editing = False` (password-protected) |
 | `GET /guestbook` | Guestbook page with sign form |
 | `GET /guestbook/entries` | JSON array of guestbook entries |
 | `POST /guestbook/sign` | Submit a guestbook entry |
@@ -41,9 +44,11 @@ Single-file FastAPI server (`main.py`) with Jinja2 templates.
 | `POST /admin/clear-artwork` | Clear all artwork entries |
 | `POST /admin/set-home` | Set presence to "I AM HOME" |
 | `POST /admin/set-away` | Set presence to "I AM AWAY" |
+| `POST /admin/reload-display` | Broadcast `{type:"reload"}` to all display clients |
 | `GET /snapshot` | Latest JPEG frame from camera Pi (polled every 100ms) |
-| `GET /status` | JSON: `{drawing, session_elapsed}` — polled every 500ms by home page |
-| `WS /ws?role=draw\|display` | Single WebSocket endpoint |
+| `GET /status` | JSON: `{drawing, session_elapsed, viewers, last_location, artwork_editing}` — polled every 500ms by home page |
+| `GET /activity` | JSON: `{last_visitor_time}` — polled every 5s by display page for screensaver |
+| `WS /ws?role=draw\|display\|view` | Single WebSocket endpoint |
 
 ### WebSocket Protocol
 
@@ -60,6 +65,12 @@ Clients connect to `/ws` with a `role` query param. The server's `ConnectionMana
 // Draw → server → display clients
 {"type": "stamp", "data": "<dataURL>", "x": 0.5, "y": 0.5, "w": 0.4, "h": 0.24}
 
+// Draw → server → display clients (flood fill; coords normalized)
+{"type": "fill", "x": 0.3, "y": 0.5, "color": "#ff0000"}
+
+// Draw → server (keep screensaver away while page is open)
+{"type": "heartbeat"}
+
 // Draw → server (save artwork, don't clear board)
 {"type": "finish", "name": "Karl", "duration": 183}
 
@@ -70,10 +81,13 @@ Clients connect to `/ws` with a `role` query param. The server's `ConnectionMana
 {"type": "redraw", "history": [...]}
 
 // Server → new display/draw client (history replay)
-{"type": "sync", "history": [...stroke/stamp objects...]}
+{"type": "sync", "history": [...stroke/stamp/fill objects...]}
 
 // Server → display clients (clear canvas)
 {"type": "clear"}
+
+// Server → display clients (force page reload)
+{"type": "reload"}
 ```
 
 ### Coordinates and Sizing
@@ -86,7 +100,11 @@ All stroke coordinates and stamp positions/sizes use **normalized values** (0.0�
 
 ### State
 
-`ConnectionManager.history` holds all strokes/stamps since the last clear. Resets on clear. New clients receive the full history as a single `sync` message.
+`ConnectionManager.history` holds all strokes/stamps/fills since the last clear. Resets on clear. New clients receive the full history as a single `sync` message.
+
+`_last_visitor_time: float` — updated whenever a draw client connects, sends a heartbeat or stroke, or the home page polls `/status`. Used by `/display` to decide when to show the screensaver.
+
+`_artwork_editing: bool` — set `True` by `POST /artwork/edit-start`, `False` by `POST /artwork/edit-end`. Included in `/status` so the home page PAST ARTWORK button disables cross-device when the admin is in edit mode.
 
 ## Files
 
@@ -147,6 +165,7 @@ website-aesthetic.rtf      # Design brief — retro arcade / lo-fi pixel art aes
 - Timer bar below canvas, 36px coral countdown
 - Slider rail white, amber square thumb
 - Stamp buttons: REMOVE (coral) and KEEP (green)
+- FILL button present in toolbar but currently disabled — shows amber toast "THIS FEATURE IS BEING WORKED ON." for 2.5s on tap; fill infrastructure is fully wired (see Fill section below)
 
 ## Admin Page
 
@@ -156,6 +175,42 @@ website-aesthetic.rtf      # Design brief — retro arcade / lo-fi pixel art aes
 - Sections: Camera preview (live, 1fps), Presence toggle, Camera controls, Clear Guestbook, Clear Artwork
 - Camera controls: brightness, contrast, saturation, exposure (μs), gain — 120ms debounced; proxied via `POST /admin/camera-control` → Pi B's `/controls` endpoint
 - AUTO RESET button sends `{"auto": true}` to re-enable auto-exposure on Pi B (AE is disabled when any manual control is set)
+- **EDIT button** (Past Artwork section): stores password in `sessionStorage("adminPw")` and navigates to `/artwork?edit=1`
+
+## Artwork Edit Mode
+
+Accessed via `/artwork?edit=1` (only from admin EDIT button).
+
+- Each artwork card shows a red × button; clicking it calls `POST /artwork/delete` (by `time` timestamp) and removes the card from DOM
+- Green DONE EDITING bar at top; clicking it clears sessionStorage and navigates back to `/artwork`
+- **HOME nav link** on `/artwork` is disabled (opacity 0.3, pointer-events none) while in edit mode
+- **PAST ARTWORK button** on `/home` shows "PLEASE WAIT..." and is non-clickable while edit mode is active — driven by `_artwork_editing` server flag via the `/status` poll, so it works cross-device (mobile visitors see it too)
+- On edit mode enter: `POST /artwork/edit-start` sets server flag
+- On DONE EDITING: `POST /artwork/edit-end` clears server flag
+- On accidental exit (tab close, navigation): `navigator.sendBeacon` to `POST /artwork/edit-end` fires during page unload
+
+## Screensaver (`/display`)
+
+- Activates after `IDLE_TIMEOUT_S = 20` seconds of no visitor activity
+- Idle is detected by polling `GET /activity` every 5s and checking `last_visitor_time`
+- `_last_visitor_time` is updated by: draw WS connect, heartbeat messages, strokes, and `/status` HTTP polls (home page)
+- Screensaver: dark overlay with amber "LIVEDOODLE" title + teal subtitle, blinking coral dot, pixel starfield, slow Lissajous drift on content to prevent burn-in
+- Drift bounds computed from `ssContent.offsetWidth/Height` — content never leaves viewport
+- Cursor hidden by default (`cursor: none`); shown for 10s on mousemove/touchstart via `body.cursor-visible` class
+
+## Fill Tool (Infrastructure Complete, UI Disabled)
+
+The fill (flood fill / bucket) pipeline is fully implemented end-to-end but the button is disabled with a "coming soon" toast while rendering issues are investigated.
+
+**Protocol:** `{type: "fill", x: <normalized>, y: <normalized>, color: "#rrggbb"}`
+
+**Where fill is handled:**
+- `draw.html`: `floodFill()` function; `startDraw()` triggers it when `isFilling`; `flatHistory()` includes fills from undoStack; `replayHistory()` handles fill type
+- `display.html`: `floodFill()` function; `redraw()` and `handleMessage()` handle fill type
+- `artwork.html`: `replayOnCanvas()` has inline `doFill()` for gallery replay
+- `main.py`: `update_history()` accepts fill; WS relay whitelist includes fill; redraw history filter includes fill
+
+**Known issue:** Fill renders correctly on draw.html locally but does not reliably render on the Pi LCD display. Root cause not yet determined — likely related to canvas pixel buffer transparency vs CSS `background: white` interaction, or async ordering during history replay. The button shows a toast instead of activating until this is resolved.
 
 ## Presence / Home Status
 
@@ -245,6 +300,7 @@ Drawing and guestbook submissions fire fire-and-forget push notifications via `h
 
 ## Planned / TODO
 
+- Fix fill tool rendering on Pi LCD display and re-enable the FILL button
 - Replace Venmo placeholder in `donate.html` with real username
 - Remove or protect old unauthenticated `POST /set-home` and `POST /set-away` endpoints
 - Visitor count + geolocation display on home page (see original design notes in git history)
