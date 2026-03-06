@@ -224,10 +224,21 @@ class ConnectionManager:
             "New drawing submitted",
         ))
 
+        await self.broadcast_to_views({"type": "artwork_submitted"})
         if clear_history:
             self.history.clear()
         if clear_display:
             await self.broadcast_to_displays({"type": "clear"})
+
+    async def broadcast_to_views(self, message: dict):
+        dead = []
+        for client in self.view_clients:
+            try:
+                await client.send_text(json.dumps(message))
+            except Exception:
+                dead.append(client)
+        for client in dead:
+            self.view_clients.remove(client)
 
     async def broadcast_to_displays(self, message: dict):
         dead = []

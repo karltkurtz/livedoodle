@@ -452,6 +452,10 @@
   const VIEW_WS_URL = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?role=view`;
   (function connectView() {
     const vws = new WebSocket(VIEW_WS_URL);
+    vws.onmessage = e => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === "artwork_submitted") triggerBurst();
+    };
     vws.onclose = () => setTimeout(connectView, 3000);
   })();
 
@@ -475,20 +479,46 @@
     speed: 0.3 + Math.random() * 0.6,
     color: COLORS[Math.floor(Math.random() * COLORS.length)],
     opacity: 0.08 + Math.random() * 0.22,
+    bvx: 0, bvy: 0,
   }));
+
+  let burstStart = null;
+  const BURST_DURATION = 2200;
+
+  function triggerBurst() {
+    burstStart = performance.now();
+    const cx = sf.width / 2, cy = sf.height / 2;
+    for (const p of pixels) {
+      const dx = p.x - cx, dy = p.y - cy;
+      const dist = Math.hypot(dx, dy) || 1;
+      const mag = 4 + Math.random() * 5;
+      p.bvx = (dx / dist) * mag;
+      p.bvy = (dy / dist) * mag;
+      p.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+    }
+  }
 
   (function tick() {
     ctx.clearRect(0, 0, sf.width, sf.height);
+    let bf = 0;
+    if (burstStart !== null) {
+      const t = (performance.now() - burstStart) / BURST_DURATION;
+      bf = t < 1 ? 1 - t : 0;
+      if (bf === 0) burstStart = null;
+    }
     for (const p of pixels) {
-      ctx.globalAlpha = p.opacity;
+      ctx.globalAlpha = Math.min(1, p.opacity * (1 + bf * 2.5));
       ctx.fillStyle = p.color;
       ctx.fillRect(Math.round(p.x), Math.round(p.y), SZ, SZ);
-      p.y -= p.speed;
+      p.x += p.bvx * bf;
+      p.y -= p.speed + p.bvy * bf;
       if (p.y < -SZ) {
         p.y = sf.height + SZ;
         p.x = Math.random() * sf.width;
         p.color = COLORS[Math.floor(Math.random() * COLORS.length)];
       }
+      if (p.x < -SZ) p.x = sf.width + SZ;
+      if (p.x > sf.width + SZ) p.x = -SZ;
     }
     ctx.globalAlpha = 1;
     requestAnimationFrame(tick);
