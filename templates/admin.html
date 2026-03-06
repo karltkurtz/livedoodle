@@ -460,7 +460,10 @@
         <div>
           <div class="data-row">
             <span class="data-label">Past Artwork</span>
-            <button class="clear-btn" id="clear-artwork">CLEAR</button>
+            <div style="display:flex;gap:8px;">
+              <button class="clear-btn" id="edit-artwork" style="border-color:var(--amber);color:var(--amber);">EDIT</button>
+              <button class="clear-btn" id="clear-artwork">CLEAR</button>
+            </div>
           </div>
           <div class="data-status" id="status-artwork"></div>
         </div>
@@ -594,6 +597,10 @@
     clearData('/admin/clear-guestbook', 'status-guestbook'));
   document.getElementById('clear-artwork').addEventListener('click', () =>
     clearData('/admin/clear-artwork', 'status-artwork'));
+  document.getElementById('edit-artwork').addEventListener('click', () => {
+    sessionStorage.setItem('adminPw', pw);
+    window.location.href = '/artwork?edit=1';
+  });
 
   // Camera controls (keys match stream.py's /controls API)
   const CAM_CONTROLS = [

@@ -311,6 +311,20 @@ async def admin_clear_artwork(request: Request):
     return JSONResponse({"ok": True})
 
 
+@app.post("/artwork/delete")
+async def artwork_delete(request: Request):
+    body = await request.json()
+    if not _check_password(body):
+        return JSONResponse({"error": "wrong password"}, status_code=401)
+    ts = body.get("time")
+    if ts is None:
+        return JSONResponse({"error": "time required"}, status_code=400)
+    entries = _load_artwork()
+    new_entries = [e for e in entries if e.get("time") != ts]
+    _save_artwork(new_entries)
+    return JSONResponse({"ok": True, "deleted": len(entries) - len(new_entries)})
+
+
 @app.post("/admin/set-home")
 async def admin_set_home(request: Request):
     global _is_home

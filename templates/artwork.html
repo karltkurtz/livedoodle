@@ -257,6 +257,59 @@
 
     .card { cursor: pointer; }
     .card:hover .card-canvas-wrap { opacity: 0.85; }
+
+    /* Edit mode */
+    #edit-bar {
+      display: none;
+      align-items: center;
+      gap: 12px;
+    }
+
+    #done-edit-btn {
+      padding: 10px 20px;
+      background: var(--bg);
+      border: 1px solid var(--green);
+      color: var(--green);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(57,255,20,0.3);
+      transition: opacity 0.1s, box-shadow 0.15s;
+    }
+    #done-edit-btn:hover { box-shadow: 0 0 18px rgba(57,255,20,0.5); }
+    #done-edit-btn:active { opacity: 0.7; }
+
+    #edit-label {
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--coral);
+    }
+
+    .delete-x {
+      display: none;
+      position: absolute;
+      top: 0; right: 0;
+      width: 32px; height: 32px;
+      background: var(--coral);
+      border: none;
+      color: #fff;
+      font-size: 20px;
+      font-family: inherit;
+      line-height: 1;
+      cursor: pointer;
+      z-index: 5;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.1s;
+    }
+    .delete-x:active { opacity: 0.7; }
+
+    body.edit-mode .delete-x { display: flex; }
+    body.edit-mode .card { cursor: default; }
+    body.edit-mode .card:hover .card-canvas-wrap { opacity: 1; }
   </style>
 </head>
 <body>
@@ -271,6 +324,11 @@
   <h1>Past<br>Artwork</h1>
 
   <div class="rule"></div>
+
+  <div id="edit-bar">
+    <button id="done-edit-btn">DONE EDITING</button>
+    <span id="edit-label">TAP ✕ TO DELETE</span>
+  </div>
 
   <div id="grid"><div id="loading">Loading...</div></div>
 
@@ -363,6 +421,19 @@
     canvas.height = Math.round(rect.height);
   }
 
+  const editMode = new URLSearchParams(location.search).get("edit") === "1";
+  const adminPw = editMode ? (sessionStorage.getItem("adminPw") || "") : "";
+
+  if (editMode) {
+    document.body.classList.add("edit-mode");
+    document.getElementById("edit-bar").style.display = "flex";
+  }
+
+  document.getElementById("done-edit-btn").addEventListener("click", () => {
+    sessionStorage.removeItem("adminPw");
+    window.location.href = "/artwork";
+  });
+
   async function load() {
     const grid = document.getElementById("grid");
     try {
@@ -386,6 +457,28 @@
         const canvas = document.createElement("canvas");
         canvas.className = "card-canvas";
         wrap.appendChild(canvas);
+
+        // Delete X button (visible in edit mode only)
+        const delBtn = document.createElement("button");
+        delBtn.className = "delete-x";
+        delBtn.textContent = "×";
+        delBtn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          try {
+            const res = await fetch("/artwork/delete", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ password: adminPw, time: entry.time }),
+            });
+            if (res.ok) {
+              card.remove();
+              if (!document.querySelector(".card")) {
+                grid.innerHTML = '<div id="empty">No artwork yet.</div>';
+              }
+            }
+          } catch (_) {}
+        });
+        wrap.appendChild(delBtn);
 
         const meta = document.createElement("div");
         meta.className = "card-meta";
@@ -414,7 +507,7 @@
         });
 
         card._entry = entry;
-        card.addEventListener("click", () => openModal(entry));
+        card.addEventListener("click", () => { if (!editMode) openModal(entry); });
       }
     } catch (_) {
       grid.innerHTML = '<div id="empty">Failed to load.</div>';
