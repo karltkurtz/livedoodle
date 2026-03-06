@@ -433,6 +433,8 @@
     backBtn.style.opacity = "0.3";
     backBtn.style.cursor = "not-allowed";
     backBtn.style.pointerEvents = "none";
+    // Clean up on any exit (tab close, accidental navigation, etc.)
+    window.addEventListener("pagehide", () => localStorage.removeItem("artworkEditMode"));
   }
 
   document.getElementById("done-edit-btn").addEventListener("click", () => {
