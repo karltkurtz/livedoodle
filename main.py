@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import ipaddress
 import json
 import os
@@ -16,6 +17,114 @@ GUESTBOOK_FILE = "guestbook.json"
 MAX_GUESTBOOK = 200
 HOME_STATUS_FILE = "home_status.json"
 ADMIN_PASSWORD = "live032319"
+
+PROMPTS = [
+    "a robot eating pizza",
+    "a cat wearing a spacesuit",
+    "a haunted house on a hill",
+    "a dragon drinking coffee",
+    "an underwater city",
+    "a ghost riding a bicycle",
+    "a wizard casting a spell",
+    "a penguin at the beach",
+    "a spaceship landing in a cornfield",
+    "a bear fishing in a river",
+    "a city made of candy",
+    "a dog flying a kite",
+    "a monster under the bed",
+    "a mermaid playing guitar",
+    "a volcano erupting confetti",
+    "an astronaut playing chess",
+    "a dinosaur at a birthday party",
+    "a cloud with a face",
+    "a submarine with windows",
+    "a tree growing inside a house",
+    "a fox reading a book",
+    "a castle on a floating island",
+    "a jellyfish in space",
+    "a pirate map with an X",
+    "a robot playing drums",
+    "a bunny surfing a wave",
+    "a lighthouse in a storm",
+    "a frog on a lily pad",
+    "a giant snail with a house shell",
+    "a rocket launching from a backyard",
+    "a knight fighting a dragon",
+    "a snowy cabin in the woods",
+    "a spider web at sunrise",
+    "a whale jumping over the moon",
+    "a cat dressed as Sherlock Holmes",
+    "a hot air balloon over mountains",
+    "a fish tank with tiny people inside",
+    "a bicycle made of spaghetti",
+    "the sun and moon having lunch",
+    "a tiny elephant on a skateboard",
+    "a flower growing from a volcano",
+    "a bookshelf that goes to space",
+    "a rain of lemons",
+    "a crab playing a violin",
+    "a hamster running a marathon",
+    "a snowman in summer",
+    "a robot gardening",
+    "a magic door in a tree",
+    "a duck driving a taxi",
+    "a jar full of fireflies",
+    "a wolf howling at a crescent moon",
+    "a sloth winning a race",
+    "a city in a snow globe",
+    "a key that unlocks the sky",
+    "an octopus writing a letter",
+    "a panda eating ramen",
+    "a haunted elevator",
+    "a teapot pouring stars",
+    "a dog wearing headphones",
+    "a map of an imaginary island",
+    "a butterfly made of stained glass",
+    "a gingerbread house in summer",
+    "a sleeping giant",
+    "a caterpillar on a leaf",
+    "a moon whose craters are swimming pools",
+    "a robot barista",
+    "a kite shaped like a dragon",
+    "a pair of boots walking alone",
+    "a magic wand making flowers grow",
+    "a fox and a rabbit sharing an umbrella",
+    "a brick wall covered in ivy",
+    "a bicycle with wings",
+    "a candy cane forest",
+    "an astronaut playing soccer",
+    "a turtle with a rocket on its shell",
+    "a library inside a tree",
+    "a bridge over a cloud",
+    "an ice cream sundae the size of a car",
+    "a cat on a throne",
+    "a shipwreck at the bottom of the sea",
+    "a bat flying past a full moon",
+    "a goat riding a skateboard",
+    "a clock melting",
+    "a bird delivering a letter",
+    "a dragon sleeping on a pile of pillows",
+    "a shark in a business suit",
+    "a door in the middle of the ocean",
+    "a robot playing chess with a grandma",
+    "a forest at night with glowing mushrooms",
+    "a bear riding a unicycle",
+    "a spaceship shaped like a teapot",
+    "a city reflected in a puddle",
+    "a dog building a sandcastle",
+    "a moon-sized strawberry",
+    "a cat in a top hat doing magic",
+    "a bird's eye view of a maze",
+    "an alien at a diner",
+    "a monster brushing its teeth",
+    "a snowflake under a magnifying glass",
+    "a tiny house inside a seashell",
+]
+
+
+def get_daily_prompt() -> str:
+    return PROMPTS[datetime.date.today().toordinal() % len(PROMPTS)]
+
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -416,7 +525,7 @@ async def admin_reload_display(request: Request):
 
 @app.get("/draw", response_class=HTMLResponse)
 async def draw_page(request: Request):
-    return templates.TemplateResponse("draw.html", {"request": request})
+    return templates.TemplateResponse("draw.html", {"request": request, "prompt": get_daily_prompt()})
 
 
 @app.get("/display", response_class=HTMLResponse)

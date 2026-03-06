@@ -240,6 +240,23 @@
       text-transform: uppercase;
     }
 
+    #prompt-bar {
+      text-align: center;
+      padding: 3px 12px 5px;
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: #555;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #prompt-text {
+      color: var(--teal);
+      text-shadow: 0 0 6px rgba(0,229,255,0.25);
+    }
+
     #timer {
       font-size: 36px;
       color: var(--coral);
@@ -518,6 +535,7 @@
 <body>
 
 <div id="timer-bar">Your art will automatically submit in &mdash;<br><span id="timer">5:00</span></div>
+<div id="prompt-bar">DAILY DRAWING CHALLENGE: <span id="prompt-text">{{ prompt }}</span></div>
 
 <div id="canvas-area">
   <div id="canvas-wrapper">
