@@ -145,7 +145,7 @@
       display: flex;
       flex-direction: column;
       gap: 14px;
-      margin-top: -6px;
+      margin-top: -60px;
     }
 
     #tools-btns {
@@ -295,7 +295,7 @@
     #toolbar::before {
       content: '';
       position: absolute;
-      top: -2px; left: 0; right: 0;
+      top: -22px; left: 0; right: 0;
       height: 2px;
       background: var(--amber);
       box-shadow: 0 0 8px rgba(255,179,0,0.6);
@@ -379,7 +379,7 @@
 
     #swatches {
       display: flex;
-      gap: 7px;
+      gap: 10px;
       align-items: center;
       flex-wrap: wrap;
       justify-content: center;
@@ -395,7 +395,7 @@
 
     .swatch.active {
       border-color: #fff;
-      transform: scale(1.18);
+      transform: scale(1.5);
       box-shadow: 0 0 8px currentColor;
     }
 
@@ -812,12 +812,9 @@
 
 <script>
   const COLORS = [
-    "#1a1a1a", "#e63333", "#e67c33", "#e6d633",
-    "#33c44a", "#3399e6", "#7c33e6", "#e633b8",
-    "#ffffff", "#888888",
-    "#cc0000", "#8b4513", "#e6a817", "#00cc66",
-    "#00ccdd", "#0044cc", "#550099", "#ff66aa",
-    "#444444", "#ffccaa",
+    "#000000", "#888888", "#ffffff", "#8b4513",
+    "#e63333", "#e67c33", "#e6d633", "#33c44a",
+    "#3399e6", "#4b0082", "#8b00ff",
   ];
 
   // ── Canvas setup ──
