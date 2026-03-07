@@ -252,6 +252,7 @@
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
 <script>
   // ── Starfield ──
   const sf = document.getElementById("starfield");
@@ -292,7 +293,45 @@
     ];
   }
 
-  function drawMap(visitors) {
+  let _geoFeatures = null;
+  async function loadGeo() {
+    if (_geoFeatures) return _geoFeatures;
+    const topo = await fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(r => r.json());
+    _geoFeatures = topojson.feature(topo, topo.objects.countries).features;
+    return _geoFeatures;
+  }
+
+  function drawRings(rings, w, h) {
+    ctx.beginPath();
+    for (const ring of rings) {
+      let first = true;
+      for (const [lon, lat] of ring) {
+        const [x, y] = latLonToXY(lat, lon, w, h);
+        if (first) { ctx.moveTo(x, y); first = false; }
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+    }
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  function drawCountries(features, w, h) {
+    ctx.fillStyle = "rgba(0,229,255,0.05)";
+    ctx.strokeStyle = "rgba(0,229,255,0.22)";
+    ctx.lineWidth = 0.5;
+    for (const f of features) {
+      const g = f.geometry;
+      if (!g) continue;
+      if (g.type === "Polygon") {
+        drawRings(g.coordinates, w, h);
+      } else if (g.type === "MultiPolygon") {
+        for (const poly of g.coordinates) drawRings(poly, w, h);
+      }
+    }
+  }
+
+  async function drawMap(visitors) {
     const dpr = window.devicePixelRatio || 1;
     const displayW = mapCanvas.offsetWidth;
     const displayH = mapCanvas.offsetHeight;
@@ -323,6 +362,10 @@
     const [pmX] = latLonToXY(0, 0, w, h);
     ctx.beginPath(); ctx.moveTo(0, eqY); ctx.lineTo(w, eqY); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(pmX, 0); ctx.lineTo(pmX, h); ctx.stroke();
+
+    // Country outlines
+    const geoFeatures = await loadGeo();
+    drawCountries(geoFeatures, w, h);
 
     // Axis labels
     ctx.fillStyle = "rgba(0,229,255,0.2)";
@@ -394,7 +437,7 @@
     const countries = new Set(visitors.map(v => v.country).filter(Boolean));
     document.getElementById("stat-countries").textContent = countries.size || "0";
 
-    drawMap(visitors);
+    await drawMap(visitors);
     renderList(buildStats(visitors, "region"), "regions-list");
     renderList(buildStats(visitors, "country"), "countries-list");
   }
