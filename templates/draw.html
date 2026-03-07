@@ -1500,7 +1500,7 @@
     const FONT_SIZE = 36;
     const FONT = `bold ${FONT_SIZE * SCALE}px 'Comic Neue', 'Comic Sans MS', 'Comic Sans', cursive`;
     const MAX_W = 440;
-    const PAD = 28;
+    const PAD = 8;
     const LINE_H = FONT_SIZE * 1.5;
 
     await document.fonts.load(`bold ${FONT_SIZE}px 'Comic Neue'`);
@@ -1520,7 +1520,8 @@
     }
     if (line) lines.push(line);
 
-    const w = MAX_W + PAD * 2;
+    const maxLineW = Math.max(...lines.map(l => mc.measureText(l).width));
+    const w = maxLineW + PAD * 2;
     const h = Math.ceil(lines.length * LINE_H) + PAD * 2;
 
     // Render at SCALE×
