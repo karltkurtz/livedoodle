@@ -35,6 +35,7 @@
       align-items: flex-start;
       justify-content: center;
       padding: 8px 8px 0;
+      position: relative;
     }
 
     #canvas-wrapper {
@@ -121,18 +122,24 @@
     }
 
     #stamp-controls {
-      display: none;
-      justify-content: center;
-      gap: 8px;
+      visibility: hidden;
+      display: flex;
+      align-self: center;
+      width: fit-content;
+      gap: 12px;
+      border: 1px solid var(--amber);
+      padding: 12px 20px;
+      box-shadow: 0 0 18px rgba(255,179,0,0.35);
     }
 
     #toolbar.stamp-mode #brand,
     #toolbar.stamp-mode #tools-section,
     #toolbar.stamp-mode #swatches,
     #toolbar.stamp-mode #controls {
-      opacity: 0.25;
+      opacity: 0.05;
       pointer-events: none;
     }
+
 
     #tools-section {
       display: flex;
@@ -250,10 +257,10 @@
     #toolbar {
       background: #0a0a0a;
       border-top: 1px solid #1a1a1a;
-      padding: 36px 12px 48px;
+      padding: 6px 12px 10px;
       display: flex;
       flex-direction: column;
-      gap: 40px;
+      gap: 8px;
       position: relative;
     }
 
@@ -367,14 +374,14 @@
     #controls {
       display: flex;
       flex-direction: column;
-      gap: 32px;
+      gap: 6px;
     }
 
     #size-preview {
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 44px;
+      height: 20px;
     }
 
     #size-dot-cur {
@@ -618,10 +625,6 @@
 </div>
 
 <div id="toolbar">
-  <div id="stamp-controls">
-    <button id="discard-stamp-btn" style="border-color:var(--coral);color:var(--coral);box-shadow:0 0 8px rgba(255,74,42,0.3);">REMOVE</button>
-    <button id="place-stamp-btn" style="border-color:var(--green);color:var(--green);box-shadow:0 0 8px rgba(57,255,20,0.3);">KEEP</button>
-  </div>
   <div id="brand">
     <div id="brand-left">
       <div id="dot"></div>
@@ -630,6 +633,11 @@
   </div>
 
   <div id="swatches"></div>
+
+  <div id="stamp-controls">
+    <button id="discard-stamp-btn" style="border-color:var(--coral);color:var(--coral);box-shadow:0 0 8px rgba(255,74,42,0.3);">REMOVE</button>
+    <button id="place-stamp-btn" style="border-color:var(--green);color:var(--green);box-shadow:0 0 8px rgba(57,255,20,0.3);">KEEP</button>
+  </div>
 
   <div id="tools-section">
     <div id="tools-btns">
@@ -1183,7 +1191,7 @@
       stampR = 0;
       updateStampPos();
       stampOverlay.classList.add("active");
-      stampControls.style.display = "flex";
+      stampControls.style.visibility = "visible";
       toolbar.classList.add("stamp-mode");
     });
   });
@@ -1261,7 +1269,7 @@
 
   document.getElementById("discard-stamp-btn").addEventListener("click", () => {
     stampOverlay.classList.remove("active");
-    stampControls.style.display = "none";
+    stampControls.style.visibility = "hidden";
     toolbar.classList.remove("stamp-mode");
     stampData = null;
   });
@@ -1299,7 +1307,7 @@
     }
 
     stampOverlay.classList.remove("active");
-    stampControls.style.display = "none";
+    stampControls.style.visibility = "hidden";
     toolbar.classList.remove("stamp-mode");
     stampData = null;
   });
@@ -1402,7 +1410,7 @@
     stampR = 0;
     updateStampPos();
     stampOverlay.classList.add("active");
-    stampControls.style.display = "flex";
+    stampControls.style.visibility = "visible";
     toolbar.classList.add("stamp-mode");
     closeAllPickers();
   }
