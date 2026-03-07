@@ -17,6 +17,8 @@ GUESTBOOK_FILE = "guestbook.json"
 MAX_GUESTBOOK = 200
 HOME_STATUS_FILE = "home_status.json"
 ADMIN_PASSWORD = "live032319"
+VISITORS_FILE = "visitors.json"
+MAX_VISITORS = 500
 
 PROMPTS = [
     "a robot eating pizza",
@@ -135,6 +137,8 @@ _is_home: bool = True
 _last_location: str = ""
 _last_visitor_time: float = 0.0
 _artwork_editing: bool = False
+_visitors: list[dict] = []
+_visitor_ips: set[str] = set()
 
 
 def _load_home_status() -> bool:
@@ -150,6 +154,21 @@ def _load_home_status() -> bool:
 def _save_home_status(home: bool):
     with open(HOME_STATUS_FILE, "w") as f:
         json.dump({"home": home}, f)
+
+
+def _load_visitors() -> list:
+    if os.path.exists(VISITORS_FILE):
+        try:
+            with open(VISITORS_FILE) as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return []
+
+
+def _save_visitors():
+    with open(VISITORS_FILE, "w") as f:
+        json.dump(_visitors, f)
 
 
 def _get_ws_ip(websocket: WebSocket) -> str:
@@ -180,6 +199,7 @@ def _is_private(ip: str) -> bool:
 
 
 async def _lookup_geo(ip: str) -> str:
+    global _visitors, _visitor_ips
     if ip in _geo_cache:
         return _geo_cache[ip]
     if not ip or _is_private(ip):
@@ -188,14 +208,28 @@ async def _lookup_geo(ip: str) -> str:
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
             r = await client.get(
-                f"http://ip-api.com/json/{ip}?fields=city,regionName,country"
+                f"http://ip-api.com/json/{ip}?fields=status,city,regionName,country,lat,lon"
             )
             if r.status_code == 200:
                 data = r.json()
-                parts = [data.get("city", ""), data.get("regionName", ""), data.get("country", "")]
-                location = ", ".join(p for p in parts if p)
-                _geo_cache[ip] = location
-                return location
+                if data.get("status") == "success":
+                    parts = [data.get("city", ""), data.get("regionName", ""), data.get("country", "")]
+                    location = ", ".join(p for p in parts if p)
+                    _geo_cache[ip] = location
+                    if ip not in _visitor_ips and data.get("lat") is not None and data.get("lon") is not None:
+                        _visitor_ips.add(ip)
+                        entry = {
+                            "lat": data["lat"],
+                            "lon": data["lon"],
+                            "city": data.get("city", ""),
+                            "region": data.get("regionName", ""),
+                            "country": data.get("country", ""),
+                        }
+                        _visitors.append(entry)
+                        if len(_visitors) > MAX_VISITORS:
+                            _visitors.pop(0)
+                        _save_visitors()
+                    return location
     except Exception:
         pass
     _geo_cache[ip] = ""
@@ -254,8 +288,9 @@ async def _poll_camera():
 
 @app.on_event("startup")
 async def startup():
-    global _is_home
+    global _is_home, _visitors
     _is_home = _load_home_status()
+    _visitors = _load_visitors()
     asyncio.create_task(_poll_camera())
 
 
@@ -576,6 +611,16 @@ async def donate_page(request: Request):
 @app.get("/about", response_class=HTMLResponse)
 async def about_page(request: Request):
     return templates.TemplateResponse("about.html", {"request": request})
+
+
+@app.get("/heatmap", response_class=HTMLResponse)
+async def heatmap_page(request: Request):
+    return templates.TemplateResponse("heatmap.html", {"request": request})
+
+
+@app.get("/visitors")
+async def visitors_data():
+    return JSONResponse(_visitors)
 
 
 @app.get("/guestbook", response_class=HTMLResponse)
