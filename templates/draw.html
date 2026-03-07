@@ -158,7 +158,7 @@
       border-color: var(--purple);
       color: var(--purple);
       box-shadow: 0 0 8px rgba(191,95,255,0.3);
-      width: 80px;
+      width: 72px;
     }
 
     #shape-toggle-btn.open {
@@ -210,7 +210,7 @@
       border-color: var(--teal);
       color: var(--teal);
       box-shadow: 0 0 8px rgba(0,229,255,0.3);
-      width: 80px;
+      width: 72px;
     }
 
     #brush-toggle-btn.open { box-shadow: 0 0 14px rgba(0,229,255,0.6); }
@@ -235,10 +235,37 @@
       border-color: var(--amber);
       color: var(--amber);
       box-shadow: 0 0 8px rgba(255,179,0,0.3);
-      width: 80px;
+      width: 72px;
     }
 
     #emoji-toggle-btn.open { box-shadow: 0 0 14px rgba(255,179,0,0.6); }
+
+    #quotes-toggle-btn {
+      border-color: var(--coral);
+      color: var(--coral);
+      box-shadow: 0 0 8px rgba(255,74,42,0.3);
+      width: 72px;
+    }
+
+    #quotes-toggle-btn.open { box-shadow: 0 0 14px rgba(255,74,42,0.6); }
+
+    .quote-btn {
+      font-size: 9px;
+      padding: 7px 10px;
+      letter-spacing: 0.12em;
+      text-align: center;
+      line-height: 1.4;
+      text-transform: uppercase;
+      border-color: rgba(255,74,42,0.2);
+      color: #666;
+      width: 100%;
+    }
+
+    .quote-btn:hover {
+      border-color: var(--coral);
+      color: var(--coral);
+      box-shadow: 0 0 8px rgba(255,74,42,0.3);
+    }
 
     .emoji-btn {
       font-size: 22px;
@@ -645,6 +672,7 @@
       <button id="shape-toggle-btn">SHAPES</button>
       <button id="brush-toggle-btn">BRUSH</button>
       <button id="emoji-toggle-btn">EMOJI</button>
+      <button id="quotes-toggle-btn">QUOTES</button>
     </div>
     <div id="brush-picker">
       <button class="brush-mode-btn active" data-mode="solid">SOLID</button>
@@ -767,6 +795,33 @@
       <button class="emoji-btn">🎃</button>
       <button class="emoji-btn">🎮</button>
       <button class="emoji-btn">🏆</button>
+    </div>
+  </div>
+</div>
+
+<!-- Quotes picker overlay -->
+<div class="picker-overlay" id="quotes-picker-overlay">
+  <div class="picker-panel" style="width:min(320px,90vw);">
+    <div class="picker-panel-title" style="color:var(--coral);">QUOTES</div>
+    <div class="picker-panel-items" style="flex-direction:column;gap:4px;">
+      <button class="quote-btn">MAKE SOMETHING BEAUTIFUL</button>
+      <button class="quote-btn">CREATE EVERY DAY</button>
+      <button class="quote-btn">STAY CURIOUS</button>
+      <button class="quote-btn">KEEP GOING</button>
+      <button class="quote-btn">BE BOLD</button>
+      <button class="quote-btn">MAKE YOUR MARK</button>
+      <button class="quote-btn">DREAM BIG</button>
+      <button class="quote-btn">STAY WEIRD</button>
+      <button class="quote-btn">NEVER STOP</button>
+      <button class="quote-btn">START NOW</button>
+      <button class="quote-btn">ART IS FREEDOM</button>
+      <button class="quote-btn">DRAW YOUR DREAMS</button>
+      <button class="quote-btn">BE BRAVE</button>
+      <button class="quote-btn">STAY WILD</button>
+      <button class="quote-btn">MAKE WAVES</button>
+      <button class="quote-btn">YOU GOT THIS</button>
+      <button class="quote-btn">GOOD VIBES ONLY</button>
+      <button class="quote-btn">MAKE IT HAPPEN</button>
     </div>
   </div>
 </div>
@@ -1318,8 +1373,10 @@
   const shapePickerOverlay = document.getElementById("shape-picker-overlay");
   const brushToggleBtn     = document.getElementById("brush-toggle-btn");
   const brushPicker        = document.getElementById("brush-picker");
-  const emojiToggleBtn     = document.getElementById("emoji-toggle-btn");
-  const emojiPickerOverlay = document.getElementById("emoji-picker-overlay");
+  const emojiToggleBtn      = document.getElementById("emoji-toggle-btn");
+  const emojiPickerOverlay  = document.getElementById("emoji-picker-overlay");
+  const quotesToggleBtn     = document.getElementById("quotes-toggle-btn");
+  const quotesPickerOverlay = document.getElementById("quotes-picker-overlay");
 
   function closeAllPickers() {
     shapePickerOverlay.classList.remove("visible");
@@ -1328,6 +1385,8 @@
     brushToggleBtn.classList.remove("open");
     emojiPickerOverlay.classList.remove("visible");
     emojiToggleBtn.classList.remove("open");
+    quotesPickerOverlay.classList.remove("visible");
+    quotesToggleBtn.classList.remove("open");
   }
 
   shapeToggleBtn.addEventListener("click", () => {
@@ -1356,6 +1415,17 @@
 
   emojiPickerOverlay.addEventListener("click", e => {
     if (e.target === emojiPickerOverlay) closeAllPickers();
+  });
+
+  // ── Quotes picker ──
+  quotesToggleBtn.addEventListener("click", () => {
+    const wasOpen = quotesPickerOverlay.classList.contains("visible");
+    closeAllPickers();
+    if (!wasOpen) { quotesPickerOverlay.classList.add("visible"); quotesToggleBtn.classList.add("open"); }
+  });
+
+  quotesPickerOverlay.addEventListener("click", e => {
+    if (e.target === quotesPickerOverlay) closeAllPickers();
   });
 
   document.querySelectorAll(".brush-mode-btn").forEach(btn => {
@@ -1440,6 +1510,48 @@
     if (!btn) return;
     closeAllPickers();
     placeStamp(renderEmoji(btn.textContent.trim()), canvas.offsetWidth * 0.25);
+  });
+
+  function renderQuote(text) {
+    const FONT_SIZE = 36;
+    const FONT = `bold ${FONT_SIZE}px 'Comic Sans MS', 'Comic Sans', cursive`;
+    const MAX_W = 440;
+    const PAD = 28;
+    const LINE_H = FONT_SIZE * 1.45;
+
+    const off = document.createElement("canvas");
+    off.width = 1; off.height = 1;
+    const c = off.getContext("2d");
+    c.font = FONT;
+
+    // Word-wrap
+    const words = text.split(" ");
+    const lines = [];
+    let line = "";
+    for (const word of words) {
+      const test = line ? line + " " + word : word;
+      if (c.measureText(test).width > MAX_W && line) { lines.push(line); line = word; }
+      else line = test;
+    }
+    if (line) lines.push(line);
+
+    const w = MAX_W + PAD * 2;
+    const h = Math.ceil(lines.length * LINE_H) + PAD * 2;
+    off.width = w; off.height = h;
+
+    c.font = FONT;
+    c.fillStyle = currentColor;
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    lines.forEach((l, i) => c.fillText(l, w / 2, PAD + (i + 0.5) * LINE_H));
+    return off.toDataURL("image/png");
+  }
+
+  document.addEventListener("click", e => {
+    const btn = e.target.closest(".quote-btn");
+    if (!btn) return;
+    closeAllPickers();
+    placeStamp(renderQuote(btn.textContent.trim()), canvas.offsetWidth * 0.55);
   });
 
   // ── Session timer (5 minutes) ──
