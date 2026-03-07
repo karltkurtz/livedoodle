@@ -164,8 +164,12 @@ website-aesthetic.rtf      # Design brief — retro arcade / lo-fi pixel art aes
 **Draw page specifics:**
 - Timer bar below canvas, 36px coral countdown
 - Slider rail white, amber square thumb
-- Stamp buttons: REMOVE (coral) and KEEP (green)
-- FILL button present in toolbar but currently disabled — shows amber toast "THIS FEATURE IS BEING WORKED ON." for 2.5s on tap; fill infrastructure is fully wired (see Fill section below)
+- Stamp buttons: REMOVE (coral) and KEEP (green) — appear as a fixed-size amber-bordered popup centered in the toolbar; toolbar dims to 5% opacity when stamp mode is active; uses `visibility` (not `display`) so toolbar height never shifts and canvas never clips
+- FILL button present in toolbar but currently disabled — shows amber toast "THE FILL BUTTON IS BEING WORKED ON." for 3s on tap; fill infrastructure is fully wired (see Fill section below)
+- SHAPES, EMOJI, QUOTES pickers open as full-screen overlay modals (dark backdrop, centered panel); BRUSH expands inline
+- Picker toggle buttons: SHAPES=purple (72px), BRUSH=teal (72px), EMOJI=amber (72px), QUOTES=coral (72px)
+- All `#btn-row` buttons are permanently lit accent colors (never greyed out); have a CSS tap animation (`@keyframes btn-tap`) on `pointerdown`
+- Daily drawing prompt shown between timer bar and canvas: "DAILY DRAWING CHALLENGE: [prompt]" — rotates daily via `date.toordinal() % len(PROMPTS)` in `main.py`
 
 ## Admin Page
 
@@ -200,7 +204,7 @@ Accessed via `/artwork?edit=1` (only from admin EDIT button).
 
 ## Fill Tool (Infrastructure Complete, UI Disabled)
 
-The fill (flood fill / bucket) pipeline is fully implemented end-to-end but the button is disabled with a "coming soon" toast while rendering issues are investigated.
+The fill (flood fill / bucket) pipeline is fully implemented end-to-end but the button is disabled with a toast while LCD rendering is investigated.
 
 **Protocol:** `{type: "fill", x: <normalized>, y: <normalized>, color: "#rrggbb"}`
 
@@ -210,7 +214,16 @@ The fill (flood fill / bucket) pipeline is fully implemented end-to-end but the 
 - `artwork.html`: `replayOnCanvas()` has inline `doFill()` for gallery replay
 - `main.py`: `update_history()` accepts fill; WS relay whitelist includes fill; redraw history filter includes fill
 
-**Known issue:** Fill renders correctly on draw.html locally but does not reliably render on the Pi LCD display. Root cause not yet determined — likely related to canvas pixel buffer transparency vs CSS `background: white` interaction, or async ordering during history replay. The button shows a toast instead of activating until this is resolved.
+**Known issue:** Fill works on draw.html (user sees it) and saves to artwork correctly, but does NOT render on the Pi LCD display. Two fixes already attempted with no success:
+1. Added `{ willReadFrequently: true }` to `canvas.getContext("2d")` in display.html
+2. Replaced `ctx.clearRect` with explicit `ctx.fillStyle="#ffffff"; ctx.fillRect(...)` so getImageData reads opaque pixels instead of transparent
+
+Next things to try:
+- SSH to Pi and open browser dev tools to check for JS errors during fill
+- Test if `ctx.getImageData` returns correct data on Pi by logging pixel values
+- Try wrapping `floodFill` call in `requestAnimationFrame` in display.html to flush GPU before pixel read
+- Check if Pi's Chromium version has known `getImageData` bugs on hardware-accelerated canvases
+- Consider sending fill result as a full canvas snapshot (dataURL stamp) instead of re-computing flood fill on display
 
 ## Presence / Home Status
 
@@ -298,9 +311,37 @@ Drawing and guestbook submissions fire fire-and-forget push notifications via `h
 - `og-image.png` (639×507) committed to repo and served at `/og-image.png`
 - OG + Twitter card meta tags in `home.html` point to `https://pigarage.com/og-image.png`
 
+## Draw Page — Stamp / Picker Architecture (draw.html)
+
+Pickers (SHAPES, EMOJI, QUOTES) use `position: fixed` overlay modals with class `.picker-overlay` / `.picker-overlay.visible`. BRUSH expands inline via `#brush-picker.open`.
+
+Stamp flow:
+1. User selects shape/emoji/quote/image → `placeStamp(dataUrl, szW, szH)` called
+2. Stamp appears on canvas via `#stamp-overlay` (position: absolute, inset: 0, z-index: 10 inside `#canvas-wrapper`)
+3. User drags/resizes/rotates stamp using handles
+4. `#stamp-controls` (REMOVE/KEEP) becomes visible via `visibility: visible` — always in layout to prevent canvas height shift
+5. Toolbar dims to 5% opacity via `#toolbar.stamp-mode`
+6. KEEP commits stamp to canvas and sends `{type:"stamp", ...}`; REMOVE discards
+
+`renderQuote(text)` renders at 3× resolution, returns `{ dataUrl, ratio }` so stamp isn't stretched.
+`placeStamp(dataUrl, szW, szH=szW)` — szH defaults to szW (square) for shapes/emoji.
+
+## Visitor Heatmap (`/heatmap`)
+
+- New page added at `GET /heatmap` and `GET /visitors`
+- `main.py` tracks unique visitor IPs with lat/lon/city/region/country via ip-api.com
+- Stored in `visitors.json` (max 500 entries)
+- `heatmap.html`: equirectangular world map canvas, glowing teal dots per visitor, top regions/countries bar charts
+- Nav button on home.html: full-width amber "VISITOR HEATMAP" button below GUESTBOOK/PAST ARTWORK
+
+## Daily Drawing Prompt
+
+- `main.py` has 100-item `PROMPTS` list and `get_daily_prompt()` using `date.toordinal() % len(PROMPTS)`
+- Prompt passed to `draw.html` via Jinja2 as `{{ prompt }}`
+- Shown in `#prompt-bar` between timer and canvas: "DAILY DRAWING CHALLENGE: [prompt]"
+
 ## Planned / TODO
 
-- Fix fill tool rendering on Pi LCD display and re-enable the FILL button
+- **START HERE NEXT TIME:** Fix fill tool on Pi LCD (see Fill Tool section above for next debugging steps)
 - Replace Venmo placeholder in `donate.html` with real username
 - Remove or protect old unauthenticated `POST /set-home` and `POST /set-away` endpoints
-- Visitor count + geolocation display on home page (see original design notes in git history)
