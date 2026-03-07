@@ -1472,11 +1472,11 @@
     return off.toDataURL("image/png");
   }
 
-  function placeStamp(dataUrl, sz) {
+  function placeStamp(dataUrl, sz, szH = sz) {
     stampData = dataUrl;
     stampImg.src = dataUrl;
     const cw = canvas.offsetWidth, ch = canvas.offsetHeight;
-    stampW = sz; stampH = sz;
+    stampW = sz; stampH = szH;
     stampCX = cw / 2; stampCY = ch / 2;
     stampR = 0;
     updateStampPos();
@@ -1513,45 +1513,50 @@
   });
 
   function renderQuote(text) {
+    const SCALE = 3;
     const FONT_SIZE = 36;
-    const FONT = `bold ${FONT_SIZE}px 'Comic Sans MS', 'Comic Sans', cursive`;
+    const FONT = `bold ${FONT_SIZE * SCALE}px 'Comic Sans MS', 'Comic Sans', cursive`;
     const MAX_W = 440;
     const PAD = 28;
-    const LINE_H = FONT_SIZE * 1.45;
+    const LINE_H = FONT_SIZE * 1.5;
 
-    const off = document.createElement("canvas");
-    off.width = 1; off.height = 1;
-    const c = off.getContext("2d");
-    c.font = FONT;
-
-    // Word-wrap
+    // Measure at 1x to word-wrap
+    const measure = document.createElement("canvas");
+    measure.width = 1; measure.height = 1;
+    const mc = measure.getContext("2d");
+    mc.font = `bold ${FONT_SIZE}px 'Comic Sans MS', 'Comic Sans', cursive`;
     const words = text.split(" ");
     const lines = [];
     let line = "";
     for (const word of words) {
       const test = line ? line + " " + word : word;
-      if (c.measureText(test).width > MAX_W && line) { lines.push(line); line = word; }
+      if (mc.measureText(test).width > MAX_W && line) { lines.push(line); line = word; }
       else line = test;
     }
     if (line) lines.push(line);
 
     const w = MAX_W + PAD * 2;
     const h = Math.ceil(lines.length * LINE_H) + PAD * 2;
-    off.width = w; off.height = h;
 
+    // Render at SCALE×
+    const off = document.createElement("canvas");
+    off.width = w * SCALE; off.height = h * SCALE;
+    const c = off.getContext("2d");
     c.font = FONT;
     c.fillStyle = currentColor;
     c.textAlign = "center";
     c.textBaseline = "middle";
-    lines.forEach((l, i) => c.fillText(l, w / 2, PAD + (i + 0.5) * LINE_H));
-    return off.toDataURL("image/png");
+    lines.forEach((l, i) => c.fillText(l, (w / 2) * SCALE, (PAD + (i + 0.5) * LINE_H) * SCALE));
+    return { dataUrl: off.toDataURL("image/png"), ratio: h / w };
   }
 
   document.addEventListener("click", e => {
     const btn = e.target.closest(".quote-btn");
     if (!btn) return;
     closeAllPickers();
-    placeStamp(renderQuote(btn.textContent.trim()), canvas.offsetWidth * 0.55);
+    const { dataUrl, ratio } = renderQuote(btn.textContent.trim());
+    const szW = canvas.offsetWidth * 0.55;
+    placeStamp(dataUrl, szW, szW * ratio);
   });
 
   // ── Session timer (5 minutes) ──
