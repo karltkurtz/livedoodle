@@ -714,25 +714,6 @@
   </div>
 </div>
 
-<!-- Fill coming soon toast -->
-<div id="fill-toast" style="
-  display:none;
-  position:fixed;
-  bottom:120px;
-  left:50%;
-  transform:translateX(-50%);
-  background:#0a0a0a;
-  border:1px solid var(--amber);
-  box-shadow:0 0 14px rgba(255,179,0,0.3);
-  color:var(--amber);
-  font-family:'Share Tech Mono',monospace;
-  font-size:10px;
-  letter-spacing:0.2em;
-  text-transform:uppercase;
-  padding:10px 16px;
-  white-space:nowrap;
-  z-index:200;
-">THIS FEATURE IS BEING WORKED ON.</div>
 
 <!-- Keep / erase existing art modal -->
 <div id="keeperase-overlay" class="modal-overlay">
@@ -744,6 +725,9 @@
     </div>
   </div>
 </div>
+
+<!-- Fill toast -->
+<div id="fill-toast" style="display:none;position:fixed;bottom:140px;left:50%;transform:translateX(-50%);background:#0a0a0a;border:1px solid var(--amber);box-shadow:0 0 14px rgba(255,179,0,0.3);color:var(--amber);font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;padding:10px 16px;white-space:nowrap;z-index:300;">THE FILL BUTTON IS BEING WORKED ON.</div>
 
 <!-- Shape picker overlay -->
 <div class="picker-overlay" id="shape-picker-overlay">
@@ -963,14 +947,14 @@
     }
   });
 
-  // ── Fill (coming soon) ──
+  // ── Fill (disabled) ──
+  const fillToast = document.getElementById("fill-toast");
   const fillBtn = document.getElementById("fill-btn");
   let fillToastTimer = null;
   fillBtn.addEventListener("click", () => {
-    const toast = document.getElementById("fill-toast");
-    toast.style.display = "block";
     clearTimeout(fillToastTimer);
-    fillToastTimer = setTimeout(() => { toast.style.display = "none"; }, 2500);
+    fillToast.style.display = "block";
+    fillToastTimer = setTimeout(() => { fillToast.style.display = "none"; }, 3000);
   });
 
   function floodFill(cx, cy, color) {
