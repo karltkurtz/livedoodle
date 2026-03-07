@@ -53,7 +53,7 @@ Single-file FastAPI server (`main.py`) with Jinja2 templates.
 ### WebSocket Protocol
 
 Clients connect to `/ws` with a `role` query param. The server's `ConnectionManager` class tracks two sets:
-- **draw clients** — send stroke/stamp/finish/clear/redraw commands; server relays to display clients
+- **draw clients** — send stroke/stamp/finish/clear/wipe/redraw commands; server relays to display clients
 - **display clients** — receive relayed strokes; receive full history sync on connect
 
 **Message types:**
@@ -74,8 +74,11 @@ Clients connect to `/ws` with a `role` query param. The server's `ConnectionMana
 // Draw → server (save artwork, don't clear board)
 {"type": "finish", "name": "Karl", "duration": 183}
 
-// Draw → server (save artwork + clear board)
+// Draw → server (save artwork + clear board) — NOT used by CLEAR button; only for future use
 {"type": "clear", "name": "Karl", "duration": 183}
+
+// Draw → server (clear board only, no artwork saved) — sent by CLEAR button
+{"type": "wipe"}
 
 // Draw → server (replace history, resync displays)
 {"type": "redraw", "history": [...]}
@@ -323,7 +326,7 @@ Stamp flow:
 5. Toolbar dims to 5% opacity via `#toolbar.stamp-mode`
 6. KEEP commits stamp to canvas and sends `{type:"stamp", ...}`; REMOVE discards
 
-`renderQuote(text)` renders at 3× resolution, returns `{ dataUrl, ratio }` so stamp isn't stretched.
+`renderQuote(text)` — async, awaits `document.fonts.load()` before measuring/drawing so Comic Neue is ready on mobile. Renders at 3× resolution, returns `{ dataUrl, ratio }` so stamp isn't stretched. Font: `'Comic Neue'` (loaded from Google Fonts) → `'Comic Sans MS'` → `cursive`.
 `placeStamp(dataUrl, szW, szH=szW)` — szH defaults to szW (square) for shapes/emoji.
 
 ## Visitor Heatmap (`/heatmap`)
