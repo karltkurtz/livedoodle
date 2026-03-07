@@ -157,14 +157,40 @@
       box-shadow: 0 0 14px rgba(191,95,255,0.6);
     }
 
-    #shape-picker {
+    .picker-overlay {
       display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .picker-overlay.visible { display: flex; }
+
+    .picker-panel {
+      background: #0a0a0a;
+      padding: 20px 16px 16px;
+      width: min(300px, 88vw);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .picker-panel-title {
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .picker-panel-items {
+      display: flex;
       flex-wrap: wrap;
       gap: 6px;
       justify-content: center;
     }
-
-    #shape-picker.open { display: flex; }
 
     .shape-btn:hover {
       border-color: var(--purple);
@@ -205,15 +231,6 @@
     }
 
     #emoji-toggle-btn.open { box-shadow: 0 0 14px rgba(255,179,0,0.6); }
-
-    #emoji-picker {
-      display: none;
-      flex-wrap: wrap;
-      gap: 4px;
-      justify-content: center;
-    }
-
-    #emoji-picker.open { display: flex; }
 
     .emoji-btn {
       font-size: 22px;
@@ -620,50 +637,10 @@
       <button id="brush-toggle-btn">BRUSH</button>
       <button id="emoji-toggle-btn">EMOJI</button>
     </div>
-    <div id="shape-picker">
-      <button class="shape-btn" data-shape="circle">CIRCLE</button>
-      <button class="shape-btn" data-shape="square">SQUARE</button>
-      <button class="shape-btn" data-shape="triangle">TRI</button>
-      <button class="shape-btn" data-shape="star">STAR</button>
-      <button class="shape-btn" data-shape="diamond">DIAMOND</button>
-      <button class="shape-btn" data-shape="hexagon">HEX</button>
-    </div>
     <div id="brush-picker">
       <button class="brush-mode-btn active" data-mode="solid">SOLID</button>
       <button class="brush-mode-btn" data-mode="dotted">DOTTED</button>
       <button class="brush-mode-btn" data-mode="dashed">DASHED</button>
-    </div>
-    <div id="emoji-picker">
-      <button class="emoji-btn">😀</button>
-      <button class="emoji-btn">😂</button>
-      <button class="emoji-btn">🥺</button>
-      <button class="emoji-btn">😍</button>
-      <button class="emoji-btn">😎</button>
-      <button class="emoji-btn">😡</button>
-      <button class="emoji-btn">🤯</button>
-      <button class="emoji-btn">🥳</button>
-      <button class="emoji-btn">🐶</button>
-      <button class="emoji-btn">🐱</button>
-      <button class="emoji-btn">🦊</button>
-      <button class="emoji-btn">🐸</button>
-      <button class="emoji-btn">🐙</button>
-      <button class="emoji-btn">🦋</button>
-      <button class="emoji-btn">🦁</button>
-      <button class="emoji-btn">🐝</button>
-      <button class="emoji-btn">🌟</button>
-      <button class="emoji-btn">🔥</button>
-      <button class="emoji-btn">💎</button>
-      <button class="emoji-btn">🍕</button>
-      <button class="emoji-btn">🚀</button>
-      <button class="emoji-btn">❤️</button>
-      <button class="emoji-btn">⚡</button>
-      <button class="emoji-btn">💀</button>
-      <button class="emoji-btn">👻</button>
-      <button class="emoji-btn">🌈</button>
-      <button class="emoji-btn">🌙</button>
-      <button class="emoji-btn">🎃</button>
-      <button class="emoji-btn">🎮</button>
-      <button class="emoji-btn">🏆</button>
     </div>
   </div>
 
@@ -727,6 +704,60 @@
     <div class="modal-actions">
       <button id="erase-btn" style="border-color:var(--amber);color:var(--amber);box-shadow:0 0 8px rgba(255,179,0,0.3);">ERASE</button>
       <button id="keep-btn" style="border-color:var(--green);color:var(--green);box-shadow:0 0 8px rgba(57,255,20,0.3);">KEEP</button>
+    </div>
+  </div>
+</div>
+
+<!-- Shape picker overlay -->
+<div class="picker-overlay" id="shape-picker-overlay">
+  <div class="picker-panel">
+    <div class="picker-panel-title" style="color:var(--purple);">SHAPES</div>
+    <div class="picker-panel-items">
+      <button class="shape-btn" data-shape="circle">CIRCLE</button>
+      <button class="shape-btn" data-shape="square">SQUARE</button>
+      <button class="shape-btn" data-shape="triangle">TRI</button>
+      <button class="shape-btn" data-shape="star">STAR</button>
+      <button class="shape-btn" data-shape="diamond">DIAMOND</button>
+      <button class="shape-btn" data-shape="hexagon">HEX</button>
+    </div>
+  </div>
+</div>
+
+<!-- Emoji picker overlay -->
+<div class="picker-overlay" id="emoji-picker-overlay">
+  <div class="picker-panel">
+    <div class="picker-panel-title" style="color:var(--amber);">EMOJI</div>
+    <div class="picker-panel-items">
+      <button class="emoji-btn">😀</button>
+      <button class="emoji-btn">😂</button>
+      <button class="emoji-btn">🥺</button>
+      <button class="emoji-btn">😍</button>
+      <button class="emoji-btn">😎</button>
+      <button class="emoji-btn">😡</button>
+      <button class="emoji-btn">🤯</button>
+      <button class="emoji-btn">🥳</button>
+      <button class="emoji-btn">🐶</button>
+      <button class="emoji-btn">🐱</button>
+      <button class="emoji-btn">🦊</button>
+      <button class="emoji-btn">🐸</button>
+      <button class="emoji-btn">🐙</button>
+      <button class="emoji-btn">🦋</button>
+      <button class="emoji-btn">🦁</button>
+      <button class="emoji-btn">🐝</button>
+      <button class="emoji-btn">🌟</button>
+      <button class="emoji-btn">🔥</button>
+      <button class="emoji-btn">💎</button>
+      <button class="emoji-btn">🍕</button>
+      <button class="emoji-btn">🚀</button>
+      <button class="emoji-btn">❤️</button>
+      <button class="emoji-btn">⚡</button>
+      <button class="emoji-btn">💀</button>
+      <button class="emoji-btn">👻</button>
+      <button class="emoji-btn">🌈</button>
+      <button class="emoji-btn">🌙</button>
+      <button class="emoji-btn">🎃</button>
+      <button class="emoji-btn">🎮</button>
+      <button class="emoji-btn">🏆</button>
     </div>
   </div>
 </div>
@@ -1273,28 +1304,31 @@
     stampData = null;
   });
 
-  // ── Shape picker ──
-  const shapeToggleBtn = document.getElementById("shape-toggle-btn");
-  const shapePicker    = document.getElementById("shape-picker");
-  const brushToggleBtn = document.getElementById("brush-toggle-btn");
-  const brushPicker    = document.getElementById("brush-picker");
-
-  const emojiToggleBtn = document.getElementById("emoji-toggle-btn");
-  const emojiPicker    = document.getElementById("emoji-picker");
+  // ── Shape / Emoji pickers (overlay modals) ──
+  const shapeToggleBtn     = document.getElementById("shape-toggle-btn");
+  const shapePickerOverlay = document.getElementById("shape-picker-overlay");
+  const brushToggleBtn     = document.getElementById("brush-toggle-btn");
+  const brushPicker        = document.getElementById("brush-picker");
+  const emojiToggleBtn     = document.getElementById("emoji-toggle-btn");
+  const emojiPickerOverlay = document.getElementById("emoji-picker-overlay");
 
   function closeAllPickers() {
-    shapePicker.classList.remove("open");
+    shapePickerOverlay.classList.remove("visible");
     shapeToggleBtn.classList.remove("open");
     brushPicker.classList.remove("open");
     brushToggleBtn.classList.remove("open");
-    emojiPicker.classList.remove("open");
+    emojiPickerOverlay.classList.remove("visible");
     emojiToggleBtn.classList.remove("open");
   }
 
   shapeToggleBtn.addEventListener("click", () => {
-    const wasOpen = shapePicker.classList.contains("open");
+    const wasOpen = shapePickerOverlay.classList.contains("visible");
     closeAllPickers();
-    if (!wasOpen) { shapePicker.classList.add("open"); shapeToggleBtn.classList.add("open"); }
+    if (!wasOpen) { shapePickerOverlay.classList.add("visible"); shapeToggleBtn.classList.add("open"); }
+  });
+
+  shapePickerOverlay.addEventListener("click", e => {
+    if (e.target === shapePickerOverlay) closeAllPickers();
   });
 
   // ── Brush picker ──
@@ -1306,9 +1340,13 @@
 
   // ── Emoji picker ──
   emojiToggleBtn.addEventListener("click", () => {
-    const wasOpen = emojiPicker.classList.contains("open");
+    const wasOpen = emojiPickerOverlay.classList.contains("visible");
     closeAllPickers();
-    if (!wasOpen) { emojiPicker.classList.add("open"); emojiToggleBtn.classList.add("open"); }
+    if (!wasOpen) { emojiPickerOverlay.classList.add("visible"); emojiToggleBtn.classList.add("open"); }
+  });
+
+  emojiPickerOverlay.addEventListener("click", e => {
+    if (e.target === emojiPickerOverlay) closeAllPickers();
   });
 
   document.querySelectorAll(".brush-mode-btn").forEach(btn => {
@@ -1369,10 +1407,11 @@
     closeAllPickers();
   }
 
-  document.querySelectorAll(".shape-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      placeStamp(renderShape(btn.dataset.shape, currentColor), canvas.offsetWidth * 0.3);
-    });
+  document.addEventListener("click", e => {
+    const btn = e.target.closest(".shape-btn");
+    if (!btn) return;
+    closeAllPickers();
+    placeStamp(renderShape(btn.dataset.shape, currentColor), canvas.offsetWidth * 0.3);
   });
 
   function renderEmoji(emoji) {
@@ -1387,10 +1426,11 @@
     return off.toDataURL("image/png");
   }
 
-  document.querySelectorAll(".emoji-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      placeStamp(renderEmoji(btn.textContent.trim()), canvas.offsetWidth * 0.25);
-    });
+  document.addEventListener("click", e => {
+    const btn = e.target.closest(".emoji-btn");
+    if (!btn) return;
+    closeAllPickers();
+    placeStamp(renderEmoji(btn.textContent.trim()), canvas.offsetWidth * 0.25);
   });
 
   // ── Session timer (5 minutes) ──
