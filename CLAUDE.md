@@ -171,8 +171,14 @@ website-aesthetic.rtf      # Design brief — retro arcade / lo-fi pixel art aes
 - FILL button present in toolbar but currently disabled — shows amber toast "THE FILL BUTTON IS BEING WORKED ON." for 3s on tap; fill infrastructure is fully wired (see Fill section below)
 - SHAPES, EMOJI, QUOTES pickers open as full-screen overlay modals (dark backdrop, centered panel); BRUSH expands inline
 - Picker toggle buttons: SHAPES=purple (72px), BRUSH=teal (72px), EMOJI=amber (72px), QUOTES=coral (72px)
+- Each picker popup has a colored border matching its button: SHAPES=purple (`--purple`, `rgba(191,95,255,0.3)` glow), EMOJI=amber (`--amber`, `rgba(255,179,0,0.3)` glow), QUOTES=coral (`--coral`, `rgba(255,74,42,0.3)` glow)
 - All `#btn-row` buttons are permanently lit accent colors (never greyed out); have a CSS tap animation (`@keyframes btn-tap`) on `pointerdown`
 - Daily drawing prompt shown between timer bar and canvas: "DAILY DRAWING CHALLENGE: [prompt]" — rotates daily via `date.toordinal() % len(PROMPTS)` in `main.py`
+- Triangle shape button label is "TRIANGLE" (not "TRI")
+- Color palette: 11 swatches — black `#000000`, gray `#888888`, white `#ffffff`, brown `#8b4513`, red `#e63333`, orange `#e67c33`, yellow `#e6d633`, green `#33c44a`, blue `#3399e6`, indigo `#4b0082`, violet `#8b00ff`
+- Active swatch scales to 1.5× (`transform: scale(1.5)`); swatch gap is 10px; swatch size is 26×26px
+- Amber toolbar accent line (`#toolbar::before`) sits at `top: -22px`
+- SHAPES/BRUSH/EMOJI/QUOTES row (`#tools-section`) has `margin-top: -60px` to pull it up toward the swatches; note: an invisible `#stamp-controls` div (~50px tall, `visibility: hidden`) sits between `#swatches` and `#tools-section` in the DOM, so large negative margins are needed to visibly close that gap
 
 ## Admin Page
 
@@ -348,3 +354,4 @@ Stamp flow:
 - **START HERE NEXT TIME:** Fix fill tool on Pi LCD (see Fill Tool section above for next debugging steps)
 - Replace Venmo placeholder in `donate.html` with real username
 - Remove or protect old unauthenticated `POST /set-home` and `POST /set-away` endpoints
+- Further toolbar layout tuning may be needed — the SHAPES/BRUSH/EMOJI/QUOTES button position (`margin-top: -60px` on `#tools-section`) is a workaround for the phantom `#stamp-controls` height; revisit if layout shifts unexpectedly
