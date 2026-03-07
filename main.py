@@ -691,5 +691,8 @@ async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
                     name = str(message.get("name", "Anonymous")).strip() or "Anonymous"
                     duration = int(message.get("duration", 0))
                     await manager.end_session(websocket, name, duration, clear_display=True)
+                elif message["type"] == "wipe":
+                    manager.history.clear()
+                    await manager.broadcast_to_displays({"type": "clear"})
     except WebSocketDisconnect:
         manager.disconnect(websocket, role)

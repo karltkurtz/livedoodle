@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>LiveDoodle</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Comic+Neue:wght@700&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1014,8 +1014,7 @@
     undoStack.length = 0;
     updateUndoBtn();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const duration = Math.round((Date.now() - sessionStart) / 1000);
-    send({ type: "clear", name: "Anonymous", duration });
+    send({ type: "wipe" });
   });
 
   // ── Drawing helpers ──
@@ -1496,19 +1495,21 @@
     placeStamp(renderEmoji(btn.textContent.trim()), canvas.offsetWidth * 0.25);
   });
 
-  function renderQuote(text) {
+  async function renderQuote(text) {
     const SCALE = 3;
     const FONT_SIZE = 36;
-    const FONT = `bold ${FONT_SIZE * SCALE}px 'Comic Sans MS', 'Comic Sans', cursive`;
+    const FONT = `bold ${FONT_SIZE * SCALE}px 'Comic Neue', 'Comic Sans MS', 'Comic Sans', cursive`;
     const MAX_W = 440;
     const PAD = 28;
     const LINE_H = FONT_SIZE * 1.5;
+
+    await document.fonts.load(`bold ${FONT_SIZE}px 'Comic Neue'`);
 
     // Measure at 1x to word-wrap
     const measure = document.createElement("canvas");
     measure.width = 1; measure.height = 1;
     const mc = measure.getContext("2d");
-    mc.font = `bold ${FONT_SIZE}px 'Comic Sans MS', 'Comic Sans', cursive`;
+    mc.font = `bold ${FONT_SIZE}px 'Comic Neue', 'Comic Sans MS', 'Comic Sans', cursive`;
     const words = text.split(" ");
     const lines = [];
     let line = "";
@@ -1534,11 +1535,11 @@
     return { dataUrl: off.toDataURL("image/png"), ratio: h / w };
   }
 
-  document.addEventListener("click", e => {
+  document.addEventListener("click", async e => {
     const btn = e.target.closest(".quote-btn");
     if (!btn) return;
     closeAllPickers();
-    const { dataUrl, ratio } = renderQuote(btn.textContent.trim());
+    const { dataUrl, ratio } = await renderQuote(btn.textContent.trim());
     const szW = canvas.offsetWidth * 0.55;
     placeStamp(dataUrl, szW, szW * ratio);
   });
