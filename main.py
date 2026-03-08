@@ -6,7 +6,7 @@ import os
 import time
 import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 CAMERA_URL = "http://10.0.0.8:8080/?action=snapshot"
@@ -17,6 +17,7 @@ GUESTBOOK_FILE = "guestbook.json"
 MAX_GUESTBOOK = 200
 HOME_STATUS_FILE = "home_status.json"
 ADMIN_PASSWORD = "live032319"
+HEARTBEAT_TIMEOUT = 45  # seconds; draw session auto-expires if no message received
 VISITORS_FILE = "visitors.json"
 MAX_VISITORS = 500
 
@@ -602,6 +603,26 @@ async def snapshot():
     return Response(content=_latest_frame, media_type="image/jpeg")
 
 
+async def _mjpeg_generator():
+    while True:
+        if _latest_frame:
+            yield (
+                b"--frame\r\n"
+                b"Content-Type: image/jpeg\r\n\r\n"
+                + _latest_frame
+                + b"\r\n"
+            )
+        await asyncio.sleep(POLL_INTERVAL)
+
+
+@app.get("/stream")
+async def stream():
+    return StreamingResponse(
+        _mjpeg_generator(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+    )
+
+
 @app.get("/og-image.png")
 async def og_image():
     if not os.path.exists("og-image.png"):
@@ -692,7 +713,13 @@ async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
         _last_visitor_time = time.time()
     try:
         while True:
-            data = await websocket.receive_text()
+            try:
+                if role == "draw":
+                    data = await asyncio.wait_for(websocket.receive_text(), timeout=HEARTBEAT_TIMEOUT)
+                else:
+                    data = await websocket.receive_text()
+            except asyncio.TimeoutError:
+                break
             message = json.loads(data)
             if role == "draw":
                 if message["type"] == "heartbeat":
@@ -717,4 +744,6 @@ async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
                     manager.history.clear()
                     await manager.broadcast_to_displays({"type": "clear"})
     except WebSocketDisconnect:
+        pass
+    finally:
         manager.disconnect(websocket, role)

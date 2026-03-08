@@ -379,7 +379,7 @@
         LIVE
       </div>
       <div id="stream-wrapper">
-        <img id="stream" src="/snapshot" alt="" />
+        <img id="stream" src="/stream" alt="" />
         <span id="feed-label">FEED_01 // LIVE</span>
         <span id="viewer-count">👀 watching: <span id="viewer-num">—</span></span>
       </div>
@@ -405,10 +405,6 @@
 </div>
 
 <script>
-  // Snapshot refresh
-  const img = document.getElementById("stream");
-  setInterval(() => { img.src = "/snapshot?" + Date.now(); }, 100);
-
   // Draw button availability + synced countdown
   const drawBtn = document.getElementById("draw-btn");
   const SESSION_MS = 5 * 60 * 1000;

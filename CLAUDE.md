@@ -380,6 +380,8 @@ Stamp flow:
 ### Backlog
 - Replace Venmo placeholder in `donate.html` with real username
 - Remove or protect old unauthenticated `POST /set-home` and `POST /set-away` endpoints
+- **Switch livestream from JS polling to MJPEG proxy** — replace 100ms JS polling loop with a persistent MJPEG stream proxied through Pi A; more efficient for both client browsers and the Pi
+- **Auto-expire draw session on heartbeat timeout** — if the draw client disconnects ungracefully (crash, network drop, phone lock), the server stays stuck in "drawing" state; fix by auto-expiring the session after ~30–45s of no heartbeat
 
 ### New Feature Ideas
 - **Reactions** — home page visitors send live emoji reactions (heart, fire, etc.) that briefly appear on `/display`

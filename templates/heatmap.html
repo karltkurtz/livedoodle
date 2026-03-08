@@ -376,7 +376,7 @@
     }
 
     // Dots
-    const dotR = Math.max(2.5, Math.min(5, w / 180)) * dpr;
+    const dotR = Math.max(0.625, Math.min(1.25, w / 720)) * dpr;
     const glowR = dotR * 4;
     for (const v of visitors) {
       const [x, y] = latLonToXY(v.lat, v.lon, w, h);
