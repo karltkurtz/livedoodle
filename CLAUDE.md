@@ -25,7 +25,7 @@ Single-file FastAPI server (`main.py`) with Jinja2 templates.
 
 | Route | Description |
 |-------|-------------|
-| `GET /` | Home page — branding, live snapshot feed, DRAW! button, presence status |
+| `GET /` | Home page — branding, MJPEG livestream, DRAW! button, presence status |
 | `GET /draw` | Mobile drawing canvas |
 | `GET /display` | Pi A kiosk display (zero UI) |
 | `GET /about` | About page — what it is, how it works, hardware setup |
@@ -45,7 +45,7 @@ Single-file FastAPI server (`main.py`) with Jinja2 templates.
 | `POST /admin/set-home` | Set presence to "I AM HOME" |
 | `POST /admin/set-away` | Set presence to "I AM AWAY" |
 | `POST /admin/reload-display` | Broadcast `{type:"reload"}` to all display clients |
-| `GET /snapshot` | Latest JPEG frame from camera Pi (polled every 100ms) |
+| `GET /stream` | MJPEG stream proxied from Pi B — persistent multipart response, one connection per viewer; replaces old `/snapshot` polling |
 | `GET /status` | JSON: `{drawing, session_elapsed, viewers, last_location, artwork_editing}` — polled every 500ms by home page |
 | `GET /activity` | JSON: `{last_visitor_time}` — polled every 5s by display page for screensaver |
 | `WS /ws?role=draw\|display\|view` | Single WebSocket endpoint |
@@ -174,7 +174,7 @@ website-aesthetic.rtf      # Design brief — retro arcade / lo-fi pixel art aes
 - h1: `clamp(35px, 9.4vw, 59px)` — reduced ~33% from original
 - DRAW! button amber when busy (someone else drawing), shows countdown timer and drawer's city/region/country
 - Corner-bracket frame around livestream via `::before`/`::after` pseudo-elements on `#stream-frame` and `#stream-inner`
-- Livestream `<img>` src set via JS on load with timestamp (`/stream?<Date.now()>`) to bust browser cache
+- Livestream `<img>` src points to `/stream` (MJPEG); browser maintains one persistent connection and renders frames natively — no JS polling loop
 - Reaction buttons (emoji burst) disabled (opacity 0.35, grayscale) when no draw session active; enabled when session starts via `/status` poll
 - **Chat panel:** collapsible below livestream, viewers-only; `#chat-toggle` button sits between stream and panel with `border-top: none`; button says "OPEN CHAT" / "CLOSE CHAT"; unread count shown in green as `[N NEW]` when panel is closed and messages arrive; max 10 messages (oldest drops); 3s rate limit per connection; geo-labeled senders (city/region/country, no "VIEWER FROM" prefix); session-only (in-memory, no persistence); iOS Safari zoom prevented via `font-size: 16px` on input
 
@@ -327,7 +327,7 @@ Drawing and guestbook submissions fire fire-and-forget push notifications via `h
 - **Drawing submitted:** topic `livedoodle-drawing-submission`, title "New drawing submitted", body: `Name from Location — Xm Ys`
 - **Guestbook signed:** topic `livedoodle-guestbook-submission`, title "New guestbook entry", body: `Name from Location: message text...`
 - Implemented in `main.py` via `_notify_ntfy(message, topic, title)` called with `asyncio.create_task` (never blocks the WS handler)
-- `httpx` is already a dependency (used for camera polling) — no new packages needed
+- `httpx` is already a dependency (used for MJPEG stream proxy) — no new packages needed
 
 ## Open Graph
 
@@ -387,7 +387,8 @@ Stamp flow:
 - ~~Tri-state presence system~~ — home / away / coding (replaces bool `_is_home`); coding state has pulsing amber animation on home page, right-aligned
 - ~~DRAW! button shows drawer location~~ — "SOMEONE IN BROOKLYN, NY IS DRAWING" (server-rendered + JS-updated via `/status`); falls back to "SOMEONE IS DRAWING" if no location
 - ~~Reaction buttons disabled when no session active~~ — opacity 0.35 + grayscale; enabled when draw session detected via `/status` poll
-- ~~Livestream cache-bust~~ — JS sets `img.src = "/stream?" + Date.now()` on page load to prevent browser caching stale/black frame
+- ~~Livestream cache-bust~~ — replaced by MJPEG stream; no polling or cache-busting needed
+- ~~Switch livestream from JS polling to MJPEG proxy~~ — done; `/stream` proxies MJPEG from Pi B, one persistent connection per viewer
 - ~~Live chat feature~~ — collapsible panel on home page, viewers-only, geo-labeled, session-only, 3s rate limit, 10 message cap, unread counter in green on OPEN CHAT button
 - ~~Removed tagline~~ — "// real strokes · real screen · no signup" paragraph removed from home page
 
@@ -400,8 +401,7 @@ Stamp flow:
 ### Backlog
 - Replace Venmo placeholder in `donate.html` with real username
 - Remove or protect old unauthenticated `POST /set-home` and `POST /set-away` endpoints
-- **Switch livestream from JS polling to MJPEG proxy** — replace 100ms JS polling loop with a persistent MJPEG stream proxied through Pi A; more efficient for both client browsers and the Pi
-- **Auto-expire draw session on heartbeat timeout** — if the draw client disconnects ungracefully (crash, network drop, phone lock), the server stays stuck in "drawing" state; fix by auto-expiring the session after ~30–45s of no heartbeat
+- **Auto-expire draw session on heartbeat timeout** — ~~done~~ already fixed (45s expiry); watch for edge cases
 
 ### YouTube Livestream Prototype (Mac-only, not deployed)
 **Purpose:** Fallback plan in case Cloudflare throttles the MJPEG stream at scale. Build a local prototype on Mac to evaluate YouTube Live as an alternative before needing it in production.
