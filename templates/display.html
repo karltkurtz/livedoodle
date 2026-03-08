@@ -110,6 +110,13 @@
       animation: emoji-float 2.5s ease-out forwards;
     }
 
+    .reaction-emoji img {
+      height: 1em;
+      width: 1em;
+      display: inline-block;
+      vertical-align: middle;
+    }
+
     @keyframes emoji-float {
       0%   { transform: translateY(0) scale(1);        opacity: 0.95; }
       15%  { transform: translateY(-6vh) scale(1.2);   opacity: 1;    }
@@ -133,6 +140,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/twemoji@14/dist/twemoji.min.js" crossorigin="anonymous"></script>
 <script>
   const canvas = document.getElementById("canvas");
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -251,6 +259,7 @@
         const el = document.createElement("div");
         el.className = "reaction-emoji";
         el.textContent = emoji;
+        twemoji.parse(el, { folder: "svg", ext: ".svg" });
         const x = 72 + Math.random() * 20;
         const size = 38 + Math.random() * 28;
         const duration = 2.1 + Math.random() * 0.8;
