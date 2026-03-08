@@ -149,6 +149,32 @@
     /* Hero */
     #hero { display: flex; flex-direction: column; gap: 12px; }
 
+    #hero-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    #chat-toggle {
+      background: var(--bg);
+      border: 1px solid var(--teal);
+      color: var(--teal);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      padding: 6px 10px;
+      cursor: pointer;
+      box-shadow: 0 0 6px rgba(0,229,255,0.2);
+      flex-shrink: 0;
+      margin-top: 6px;
+    }
+
+    #chat-toggle.active {
+      background: rgba(0,229,255,0.08);
+      box-shadow: 0 0 10px rgba(0,229,255,0.35);
+    }
+
     h1 {
       font-size: clamp(35px, 9.4vw, 59px);
       font-weight: normal;
@@ -161,6 +187,84 @@
         0 0 54px rgba(255,179,0,0.12);
     }
 
+    #chat-panel {
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.3s ease;
+      border: 1px solid rgba(0,229,255,0.2);
+      background: rgba(0,0,0,0.5);
+    }
+
+    #chat-panel.open { max-height: 300px; }
+
+    #chat-messages {
+      height: 220px;
+      overflow-y: auto;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    #chat-messages:empty::before {
+      content: 'NO MESSAGES YET';
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      color: #333;
+      margin: auto;
+      align-self: center;
+    }
+
+    .chat-msg {
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .chat-from {
+      color: var(--teal);
+      opacity: 0.8;
+    }
+
+    .chat-text { color: #888; }
+
+    #chat-input-row {
+      display: flex;
+      border-top: 1px solid rgba(0,229,255,0.12);
+    }
+
+    #chat-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      color: #ccc;
+      padding: 8px 10px;
+      outline: none;
+      text-transform: uppercase;
+    }
+
+    #chat-input::placeholder { color: #333; letter-spacing: 0.12em; }
+
+    #chat-send {
+      background: transparent;
+      border: none;
+      border-left: 1px solid rgba(0,229,255,0.12);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      color: var(--teal);
+      padding: 8px 14px;
+      cursor: pointer;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    #chat-send:active { opacity: 0.6; }
+
     h1 .accent {
       display: block;
       color: transparent;
@@ -168,14 +272,6 @@
       text-shadow:
         0 0 14px rgba(0,229,255,0.45),
         0 0 44px rgba(0,229,255,0.12);
-    }
-
-    #desc {
-      font-size: 12px;
-      letter-spacing: 0.12em;
-      color: #555;
-      text-transform: uppercase;
-      line-height: 1.6;
     }
 
     /* Rule */
@@ -386,8 +482,10 @@
   </div>
 
   <div id="hero">
-    <h1>Draw.<br><span class="accent">Live.</span></h1>
-    <p id="desc">// real strokes &middot; real screen &middot; no signup</p>
+    <div id="hero-row">
+      <h1>Draw.<br><span class="accent">Live.</span></h1>
+      <button id="chat-toggle">CHAT</button>
+    </div>
   </div>
 
   <div class="rule"></div>
@@ -407,6 +505,14 @@
         </div>
         <span id="viewer-count">👀 watching: <span id="viewer-num">—</span></span>
       </div>
+    </div>
+  </div>
+
+  <div id="chat-panel">
+    <div id="chat-messages"></div>
+    <div id="chat-input-row">
+      <input id="chat-input" type="text" placeholder="SAY SOMETHING..." maxlength="200" autocomplete="off" />
+      <button id="chat-send">SEND</button>
     </div>
   </div>
 
@@ -498,6 +604,42 @@
   pollStatus();
   setInterval(pollStatus, 500);
 
+  // ── Chat ──
+  const chatToggle = document.getElementById("chat-toggle");
+  const chatPanel = document.getElementById("chat-panel");
+  const chatMessages = document.getElementById("chat-messages");
+  const chatInput = document.getElementById("chat-input");
+  const MAX_CHAT_MSGS = 10;
+
+  chatToggle.addEventListener("click", () => {
+    const open = chatPanel.classList.toggle("open");
+    chatToggle.classList.toggle("active", open);
+    if (open) chatInput.focus();
+  });
+
+  function addChatMsg(from, text) {
+    const el = document.createElement("div");
+    el.className = "chat-msg";
+    el.innerHTML = `<span class="chat-from">${from}:</span> <span class="chat-text">${text.replace(/</g, "&lt;")}</span>`;
+    chatMessages.appendChild(el);
+    while (chatMessages.children.length > MAX_CHAT_MSGS) {
+      chatMessages.removeChild(chatMessages.firstChild);
+    }
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function sendChat() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    if (_vws && _vws.readyState === WebSocket.OPEN) {
+      _vws.send(JSON.stringify({ type: "chat", text }));
+      chatInput.value = "";
+    }
+  }
+
+  document.getElementById("chat-send").addEventListener("click", sendChat);
+  chatInput.addEventListener("keydown", e => { if (e.key === "Enter") sendChat(); });
+
   // Register as a viewer so the server can count active home page visitors
   const VIEW_WS_URL = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?role=view`;
   let _vws = null;
@@ -507,6 +649,7 @@
     vws.onmessage = e => {
       const msg = JSON.parse(e.data);
       if (msg.type === "artwork_submitted") triggerBurst();
+      else if (msg.type === "chat") addChatMsg(msg.from, msg.text);
     };
     vws.onclose = () => { _vws = null; setTimeout(connectView, 3000); };
   }

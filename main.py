@@ -18,6 +18,7 @@ MAX_GUESTBOOK = 200
 HOME_STATUS_FILE = "home_status.json"
 ADMIN_PASSWORD = "live032319"
 HEARTBEAT_TIMEOUT = 45  # seconds; draw session auto-expires if no message received
+CHAT_RATE_LIMIT = 3.0  # seconds between chat messages per view connection
 VISITORS_FILE = "visitors.json"
 MAX_VISITORS = 500
 
@@ -308,6 +309,7 @@ class ConnectionManager:
         self._client_ips: dict[int, str] = {}  # id(websocket) → ip
         self.session_start: float | None = None
         self._view_last_reaction: dict[int, float] = {}  # id(websocket) → timestamp
+        self._view_last_chat: dict[int, float] = {}  # id(websocket) → timestamp
 
     async def connect(self, websocket: WebSocket, role: str):
         await websocket.accept()
@@ -330,7 +332,9 @@ class ConnectionManager:
         elif role == "view":
             self.view_clients.append(websocket)
             self._view_last_reaction[id(websocket)] = 0
+            self._view_last_chat[id(websocket)] = 0
             ip = _get_ws_ip(websocket)
+            self._client_ips[id(websocket)] = ip
             asyncio.create_task(_record_view_location(ip))
 
     def disconnect(self, websocket: WebSocket, role: str):
@@ -343,7 +347,9 @@ class ConnectionManager:
             self.display_clients.remove(websocket)
         elif role == "view" and websocket in self.view_clients:
             self.view_clients.remove(websocket)
+            self._client_ips.pop(id(websocket), None)
             self._view_last_reaction.pop(id(websocket), None)
+            self._view_last_chat.pop(id(websocket), None)
 
     def update_history(self, message: dict):
         if message["type"] in ("stroke", "stamp", "fill"):
@@ -754,6 +760,16 @@ async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
                         if now - manager._view_last_reaction.get(id(websocket), 0) >= 0.3:
                             manager._view_last_reaction[id(websocket)] = now
                             await manager.broadcast_to_displays({"type": "reaction", "emoji": emoji})
+                elif message.get("type") == "chat":
+                    text = str(message.get("text", "")).strip()[:200]
+                    if text:
+                        now = time.time()
+                        if now - manager._view_last_chat.get(id(websocket), 0) >= CHAT_RATE_LIMIT:
+                            manager._view_last_chat[id(websocket)] = now
+                            ip = manager._client_ips.get(id(websocket), "")
+                            city = _geo_cache.get(ip, "").split(",")[0].strip()
+                            from_label = f"VIEWER FROM {city.upper()}" if city else "VISITOR"
+                            await manager.broadcast_to_views({"type": "chat", "text": text, "from": from_label})
     except WebSocketDisconnect:
         pass
     finally:
