@@ -605,11 +605,21 @@
   const chatMessages = document.getElementById("chat-messages");
   const chatInput = document.getElementById("chat-input");
   const MAX_CHAT_MSGS = 10;
+  let unreadChat = 0;
+
+  function updateChatToggleLabel(open) {
+    if (open) {
+      chatToggle.textContent = "CLOSE CHAT";
+    } else {
+      chatToggle.textContent = unreadChat > 0 ? `OPEN CHAT  [${unreadChat} NEW]` : "OPEN CHAT";
+    }
+  }
 
   chatToggle.addEventListener("click", () => {
     const open = chatPanel.classList.toggle("open");
     chatToggle.classList.toggle("active", open);
-    chatToggle.textContent = open ? "CLOSE CHAT" : "OPEN CHAT";
+    if (open) { unreadChat = 0; }
+    updateChatToggleLabel(open);
     if (open) chatInput.focus();
   });
 
@@ -622,6 +632,10 @@
       chatMessages.removeChild(chatMessages.firstChild);
     }
     chatMessages.scrollTop = chatMessages.scrollHeight;
+    if (!chatPanel.classList.contains("open")) {
+      unreadChat++;
+      updateChatToggleLabel(false);
+    }
   }
 
   function sendChat() {

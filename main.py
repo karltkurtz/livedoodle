@@ -768,7 +768,7 @@ async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
                             manager._view_last_chat[id(websocket)] = now
                             ip = manager._client_ips.get(id(websocket), "")
                             location = _geo_cache.get(ip, "").strip()
-                            from_label = f"VIEWER FROM {location.upper()}" if location else "VISITOR"
+                            from_label = location.upper() if location else "VISITOR"
                             await manager.broadcast_to_views({"type": "chat", "text": text, "from": from_label})
     except WebSocketDisconnect:
         pass
