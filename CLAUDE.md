@@ -355,6 +355,7 @@ Stamp flow:
   1. **Server-side (real fix):** In `ConnectionManager.connect()`, if `len(self.draw_clients) > 0` when a new draw client connects, immediately send them `{"type": "busy"}` and close the connection. This makes session theft impossible regardless of UI state.
   2. **UI race fix:** Pass current `drawing` state to `home.html` as a Jinja2 template variable so the DRAW! button renders in its correct busy/available state on first paint, before the JS poll fires.
 
+- Increase `MAX_ARTWORK` in `main.py` from 25 to 100
 - **START HERE NEXT TIME:** Fix fill tool on Pi LCD (see Fill Tool section above for next debugging steps)
 - Replace Venmo placeholder in `donate.html` with real username
 - Remove or protect old unauthenticated `POST /set-home` and `POST /set-away` endpoints
