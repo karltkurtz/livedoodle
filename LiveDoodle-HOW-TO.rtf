@@ -1,0 +1,510 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2822
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fnil\fcharset0 Menlo-Bold;\f1\fnil\fcharset0 Menlo-Regular;}
+{\colortbl;\red255\green255\blue255;\red70\green137\blue204;\red24\green24\blue24;\red193\green193\blue193;
+\red85\green129\blue224;\red194\green126\blue101;\red202\green202\blue202;\red140\green211\blue254;\red238\green46\blue56;
+\red167\green197\blue152;\red212\green214\blue154;}
+{\*\expandedcolortbl;;\cssrgb\c33725\c61176\c83922;\cssrgb\c12157\c12157\c12157;\cssrgb\c80000\c80000\c80000;
+\cssrgb\c40392\c58824\c90196;\cssrgb\c80784\c56863\c47059;\cssrgb\c83137\c83137\c83137;\cssrgb\c61176\c86275\c99608;\cssrgb\c95686\c27843\c27843;
+\cssrgb\c70980\c80784\c65882;\cssrgb\c86275\c86275\c66667;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\deftab720
+\pard\pardeftab720\partightenfactor0
+
+\f0\b\fs24 \cf2 \cb3 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 # LiveDoodle \'97 How to Build This
+\f1\b0 \cf4 \cb1 \strokec4 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 This guide explains how to rebuild LiveDoodle from scratch. LiveDoodle is a real-time drawing app: visitors draw on their phones and the drawing appears live on a 7" display connected to a Raspberry Pi.\cb1 \
+\
+\cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ## What It Does
+\f1\b0 \cf4 \cb1 \strokec4 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  A public website lets anyone visit and tap DRAW! to start drawing on a canvas\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Their strokes appear in real time on a physical display (a Raspberry Pi attached to a Raspberry Pi LCD screen) sitting somewhere in your home\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  A second Raspberry Pi with a Raspberry Pi HQ camera streams a live image of the display back to the website, so web visitors can watch it update\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Finished drawings are saved to a gallery at /artwork\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Visitors can sign a guestbook at /guestbook\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  An admin panel at /admin lets you control the camera, toggle your presence status, and manage content\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ## Hardware Required
+\f1\b0 \cf4 \cb1 \strokec4 \
+\
+
+\f0\b \cf2 \cb3 \strokec2 ### Pi A \'97 Server + Display Pi
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Raspberry Pi 4 (2GB or 4GB RAM recommended)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Official Raspberry Pi 7" Touchscreen Display (800x480)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  MicroSD card (32GB+)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Canakit\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ### Pi B \'97 Camera Pi
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Raspberry Pi 4 (1GB is fine)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Raspberry Pi HQ Camera Module (12MP)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Camera lens (16mm telephoto works well for pointing at a display from ~2 feet away)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  MicroSD card (16GB+)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Canakit\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Camera mount or stand\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ### Networking
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Both Pis on the same local network (wired or WiFi)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  A Cloudflare account (free tier) for the public tunnel \'97 this gives you a real HTTPS URL without port forwarding\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ### Optional
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  A Venmo account if you want to accept donations\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  ntfy.sh account (free) for push notifications when someone draws or signs the guestbook\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ## Software Stack
+\f1\b0 \cf4 \cb1 \strokec4 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  
+\f0\b \cf2 \strokec2 **Python 3.11+**
+\f1\b0 \cf4 \strokec4  \'97 the only language used\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  
+\f0\b \cf2 \strokec2 **FastAPI**
+\f1\b0 \cf4 \strokec4  \'97 web framework, handles HTTP routes and WebSockets\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  
+\f0\b \cf2 \strokec2 **Uvicorn**
+\f1\b0 \cf4 \strokec4  \'97 ASGI server that runs the FastAPI app\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  
+\f0\b \cf2 \strokec2 **Jinja2**
+\f1\b0 \cf4 \strokec4  \'97 HTML templating (renders server-side variables into HTML files)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  
+\f0\b \cf2 \strokec2 **httpx**
+\f1\b0 \cf4 \strokec4  \'97 makes HTTP requests from the server (used for camera polling and push notifications)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  
+\f0\b \cf2 \strokec2 **Cloudflare Tunnel**
+\f1\b0 \cf4 \strokec4  \'97 exposes your Pi to the internet without port forwarding\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  No Node.js, no npm, no build step\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ## File Overview
+\f1\b0 \cf4 \cb1 \strokec4 \
+\
+
+\f0\b \cf2 \cb3 \strokec2 ### \cf6 \strokec6 `main.py`
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 The entire backend. One Python file that does everything:\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Defines all URL routes (/, /draw, /display, /artwork, /guestbook, /admin, etc.)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Manages WebSocket connections between draw clients and the display\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Keeps a history of strokes so new display clients get a full replay\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Saves and loads artwork entries, guestbook entries, presence status, and visitor data from JSON files\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Polls the camera Pi every 100ms and caches the latest JPEG frame\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Sends push notifications via ntfy.sh when drawings or guestbook entries are submitted\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Tracks visitor IPs with geolocation for the heatmap\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 **AI prompt to build this:**
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 "Build a single-file FastAPI server in Python. It should serve a home page, a mobile drawing canvas at /draw, and a display page at /display. Use WebSockets to relay drawing strokes from draw clients to display clients in real time. Keep a history of strokes in memory so new display clients receive a full replay on connect. Add a /snapshot route that polls a JPEG stream from a remote URL every 100ms and caches the frame. Save completed drawings as JSON to a file, capped at 100 entries. Include a password-protected admin route. Use Jinja2 for HTML templates."\cb1 \
+\
+\cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ### \cf6 \strokec6 `templates/home.html`
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 The public-facing home page. Shows:\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  The site name and a blinking dot\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  A live snapshot of the display (polling /snapshot every 100ms)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  A DRAW! button that links to /draw (shows a countdown timer if someone else is drawing)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Your presence status (I AM HOME / I AM AWAY)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Links to guestbook, past artwork, visitor heatmap\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 **AI prompt:**
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 "Build an HTML page for a live art display website. Use Share Tech Mono font. Dark background (#0a0a0a). Retro arcade aesthetic with neon glow effects. Show a live camera feed that polls /snapshot every 100ms. Show a DRAW! button that polls /status every 500ms \'97 if someone is actively drawing, show a countdown timer and disable the button. Include a pixel starfield animation (40 small squares drifting upward) on a fixed canvas behind everything. Use CSS scanlines overlay for CRT effect."\cb1 \
+\
+\cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ### \cf6 \strokec6 `templates/draw.html`
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 The mobile drawing canvas. This is the most complex template:\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Full-screen canvas for drawing\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Color swatch palette\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Brush size slider\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  ERASER, UNDO, CLEAR, DONE buttons\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  SHAPES, EMOJI, QUOTES, BRUSH picker buttons that open overlay popups\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  A countdown timer bar at the top (5 minutes per session)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Sends strokes to the server via WebSocket in real time\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Stamp system for placing shapes, emoji, quotes, and uploaded images onto the canvas\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 **AI prompt:**
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 "Build a mobile-optimized drawing canvas in HTML/JS. Use a WebSocket to send stroke data to a server in real time. Normalize all coordinates (0.0 to 1.0) relative to canvas size. Include a color palette, brush size slider, eraser, and undo. Add a 5-minute countdown timer. Add picker buttons (SHAPES, EMOJI, QUOTES) that open full-screen overlay modals. Include a stamp system where the user can place an image on the canvas and drag/resize/rotate it before committing. Use Share Tech Mono font, dark retro aesthetic, amber toolbar."\cb1 \
+\
+\cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ### \cf6 \strokec6 `templates/display.html`
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 The Pi kiosk page \'97 zero UI, just the canvas:\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Connects to the server via WebSocket as a display client\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Replays full stroke history on connect\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Renders all new strokes in real time\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Screensaver activates after 20 seconds of no visitor activity (polls /activity)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  No controls, no buttons \'97 Chromium runs this in fullscreen kiosk mode\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 **AI prompt:**
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 "Build a fullscreen HTML canvas page with no UI. Connect to a WebSocket server and replay incoming stroke history. Handle stroke, stamp, fill, clear, sync, and reload message types. After 20 seconds of inactivity (polled from a /activity endpoint), show a screensaver overlay with a slow drifting animation to prevent display burn-in. Hide the cursor by default."\cb1 \
+\
+\cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ### \cf6 \strokec6 `templates/artwork.html`
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 The past artwork gallery:\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Fetches saved artwork entries from /artwork/entries\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Renders each entry as a canvas by replaying its stroke history\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Shows the artist name, location, time, and drawing duration\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Clicking an entry opens a fullscreen lightbox\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Edit mode (accessed from admin) shows delete buttons on each card\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 **AI prompt:**
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 "Build an HTML gallery page that fetches a JSON list of drawing entries from /artwork/entries. Each entry contains an array of stroke objects. Render each entry onto a canvas by replaying the strokes. Show metadata (name, location, date, duration) below each canvas. Add a lightbox that opens on click. Include an edit mode where each card shows a delete button."\cb1 \
+\
+\cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ### \cf6 \strokec6 `templates/guestbook.html`
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 A simple guestbook:\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Shows all entries (name, location, message, date)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Form to submit a new entry (name + message, 200 char limit)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Entries are stored server-side\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 **AI prompt:**
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 "Build an HTML guestbook page. Fetch entries from /guestbook/entries and display them as a list with name, location, date, and message. Include a form at the top that POSTs to /guestbook/sign. Use Share Tech Mono font, dark retro aesthetic, purple accent color."\cb1 \
+\
+\cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ### \cf6 \strokec6 `templates/admin.html`
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 Password-protected admin panel:\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Login form that stores the password in memory (never sent to localStorage)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Live camera preview (1fps)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Camera controls (brightness, contrast, saturation, exposure, gain) with debounced sliders\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Presence toggle (I AM HOME / I AM AWAY)\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Buttons to clear all guestbook entries or all artwork\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Button to navigate to artwork edit mode\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 **AI prompt:**
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 "Build a password-protected admin panel in HTML. Show a login form first. On success, reveal sections for: live camera preview (polling an image endpoint at 1fps), slider controls for camera settings (debounced 120ms, sent via POST), presence toggle buttons, and dangerous action buttons (clear guestbook, clear artwork). Store the password in JS memory only \'97 never in localStorage or cookies. Use Share Tech Mono font, amber accent."\cb1 \
+\
+\cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ### \cf6 \strokec6 `templates/heatmap.html`
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 A visitor map:\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Fetches visitor data (lat/lon/city/country) from /visitors\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Renders an equirectangular world map on a canvas\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Draws country outlines using TopoJSON data from a CDN\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Places a glowing teal dot for each visitor\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Shows bar charts of top regions and countries\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 **AI prompt:**
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 "Build an HTML visitor heatmap page using a canvas element. Fetch visitor data (lat/lon/city/country) from /visitors. Draw an equirectangular world map: first a grid, then country outlines using topojson-client and world-atlas data from jsDelivr CDN, then a glowing dot for each visitor. Below the map, show bar charts of the top visitor regions and countries. Use Share Tech Mono font, teal accent, dark background."\cb1 \
+\
+\cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ### \cf6 \strokec6 `templates/about.html`\cf2 \strokec2  and \cf6 \strokec6 `templates/donate.html`
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 Static informational pages. About explains the project and hardware. Donate has a Venmo link.\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 **AI prompt:**
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 "Build a simple informational HTML page using Share Tech Mono font with dark retro arcade aesthetic. Teal accent for about.html, coral accent for donate.html. Include the standard pixel starfield and scanlines."\cb1 \
+\
+\cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ### \cf6 \strokec6 `artwork_history.json`
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 Flat JSON array of saved artwork entries. Each entry looks like:\cb1 \
+\cb3 ```json\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7 \{\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7   \cf8 \strokec8 "history"\cf7 \strokec7 : [ \cf9 \strokec9 ...stroke\cf7 \strokec7  \cf9 \strokec9 objects...\cf7 \strokec7  ],\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7   \cf8 \strokec8 "name"\cf7 \strokec7 : \cf6 \strokec6 "Karl"\cf7 \strokec7 ,\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7   \cf8 \strokec8 "location"\cf7 \strokec7 : \cf6 \strokec6 "Austin, Texas, US"\cf7 \strokec7 ,\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7   \cf8 \strokec8 "time"\cf7 \strokec7 : \cf10 \strokec10 1709123456.789\cf7 \strokec7 ,\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7   \cf8 \strokec8 "duration"\cf7 \strokec7 : \cf10 \strokec10 183\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 \}\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 ```\cb1 \
+\cb3 Capped at 100 entries. Oldest is dropped when full. Created automatically by the server \'97 do not edit by hand.\cb1 \
+\
+\cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ### \cf6 \strokec6 `guestbook.json`
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 Flat JSON array of guestbook entries. Capped at 200. Same pattern as artwork_history.json.\cb1 \
+\
+\cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ### \cf6 \strokec6 `home_status.json`
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 Single JSON object: \cf6 \strokec6 `\{"home": true\}`\cf4 \strokec4  or \cf6 \strokec6 `\{"home": false\}`\cf4 \strokec4 . Controls the I AM HOME / I AM AWAY status on the home page. Toggled via the admin panel.\cb1 \
+\
+\cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ### \cf6 \strokec6 `visitors.json`
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 Flat JSON array of visitor records with IP, lat, lon, city, region, country. Capped at 500. Populated automatically when visitors load the home page.\cb1 \
+\
+\cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ### \cf6 \strokec6 `requirements.txt`
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 Python dependencies:\cb1 \
+\cb3 ```\cb1 \
+\cb3 fastapi\cb1 \
+\cb3 uvicorn[standard]\cb1 \
+\cb3 jinja2\cb1 \
+\cb3 python-multipart\cb1 \
+\cb3 httpx\cb1 \
+\cb3 ```\cb1 \
+\cb3 Install with: \cf6 \strokec6 `pip install -r requirements.txt`\cf4 \cb1 \strokec4 \
+\
+\cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ### \cf6 \strokec6 `livedoodle.service`
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 A systemd service unit file that runs the FastAPI server automatically on Pi A boot. Copy to \cf6 \strokec6 `/etc/systemd/system/`\cf4 \strokec4 , then:\cb1 \
+\cb3 ```bash\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf11 \cb3 \strokec11 sudo\cf7 \strokec7  \cf6 \strokec6 systemctl\cf7 \strokec7  \cf6 \strokec6 daemon-reload\cf4 \cb1 \strokec4 \
+\cf11 \cb3 \strokec11 sudo\cf7 \strokec7  \cf6 \strokec6 systemctl\cf7 \strokec7  \cf6 \strokec6 enable\cf7 \strokec7  \cf6 \strokec6 livedoodle\cf4 \cb1 \strokec4 \
+\cf11 \cb3 \strokec11 sudo\cf7 \strokec7  \cf6 \strokec6 systemctl\cf7 \strokec7  \cf6 \strokec6 start\cf7 \strokec7  \cf6 \strokec6 livedoodle\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 ```\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 **AI prompt:**
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 "Write a systemd service unit file that runs \cf6 \strokec6 `uvicorn main:app --host 0.0.0.0 --port 8000 --proxy-headers`\cf4 \strokec4  as a service, working directory /home/youruser/livedoodle, restarting on failure."\cb1 \
+\
+\cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ## Setting Up Pi A (Server + Display)
+\f1\b0 \cf4 \cb1 \strokec4 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 1.\cf4 \strokec4  Flash Raspberry Pi OS (64-bit, Desktop) to the SD card\cb1 \
+\cf5 \cb3 \strokec5 2.\cf4 \strokec4  Connect the 7" display\cb1 \
+\cf5 \cb3 \strokec5 3.\cf4 \strokec4  SSH in and clone your repo to \cf6 \strokec6 `~/livedoodle`\cf4 \cb1 \strokec4 \
+\cf5 \cb3 \strokec5 4.\cf4 \strokec4  Install Python deps: \cf6 \strokec6 `pip install -r requirements.txt`\cf4 \cb1 \strokec4 \
+\cf5 \cb3 \strokec5 5.\cf4 \strokec4  Install the systemd service (see above)\cb1 \
+\cf5 \cb3 \strokec5 6.\cf4 \strokec4  Set up Chromium to auto-launch in kiosk mode on boot by adding this to \cf6 \strokec6 `~/.config/lxsession/LXDE-pi/autostart`\cf4 \strokec4 :\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3    ```\cb1 \
+\cb3    @xset s off\cb1 \
+\cb3    @xset -dpms\cb1 \
+\cb3    @xset s noblank\cb1 \
+\cb3    @bash -c 'sleep 5 && chromium --kiosk --noerrdialogs --disable-infobars http://localhost:8000/display'\cb1 \
+\cb3    ```\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 7.\cf4 \strokec4  Install and configure Cloudflare Tunnel to expose port 8000 publicly\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ## Setting Up Pi B (Camera)
+\f1\b0 \cf4 \cb1 \strokec4 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 1.\cf4 \strokec4  Flash Raspberry Pi OS (64-bit, Lite) to the SD card\cb1 \
+\cf5 \cb3 \strokec5 2.\cf4 \strokec4  Connect the HQ camera module\cb1 \
+\cf5 \cb3 \strokec5 3.\cf4 \strokec4  Write a small Python script (\cf6 \strokec6 `stream.py`\cf4 \strokec4 ) using picamera2 that:\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3    \cf5 \strokec5 -\cf4 \strokec4  Serves JPEG snapshots at \cf6 \strokec6 `http://0.0.0.0:8080/?action=snapshot`\cf4 \cb1 \strokec4 \
+\cb3    \cf5 \strokec5 -\cf4 \strokec4  Accepts POST requests to \cf6 \strokec6 `/controls`\cf4 \strokec4  for adjusting camera settings (brightness, contrast, saturation, exposure, gain)\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 **AI prompt for stream.py:**
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 "Write a Python HTTP server using picamera2 that serves a single JPEG snapshot at GET /?action=snapshot and accepts camera control adjustments via POST /controls (JSON body with keys: brightness, contrast, saturation, exposure, gain, auto). When 'auto' is true, recreate the camera to re-enable auto-exposure. Run on port 8080."\cb1 \
+\
+\cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ## Cloudflare Tunnel Setup
+\f1\b0 \cf4 \cb1 \strokec4 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 1.\cf4 \strokec4  Create a free Cloudflare account and add your domain (or use a free .trycloudflare.com URL)\cb1 \
+\cf5 \cb3 \strokec5 2.\cf4 \strokec4  Install \cf6 \strokec6 `cloudflared`\cf4 \strokec4  on Pi A\cb1 \
+\cf5 \cb3 \strokec5 3.\cf4 \strokec4  Run \cf6 \strokec6 `cloudflared tunnel login`\cf4 \strokec4  and \cf6 \strokec6 `cloudflared tunnel create livedoodle`\cf4 \cb1 \strokec4 \
+\cf5 \cb3 \strokec5 4.\cf4 \strokec4  Configure the tunnel to point to \cf6 \strokec6 `http://localhost:8000`\cf4 \cb1 \strokec4 \
+\cf5 \cb3 \strokec5 5.\cf4 \strokec4  Set it to run as a service so it starts on boot\cb1 \
+\cf5 \cb3 \strokec5 6.\cf4 \strokec4  In \cf6 \strokec6 `main.py`\cf4 \strokec4 , use \cf6 \strokec6 `--proxy-headers`\cf4 \strokec4  with uvicorn so the real visitor IP comes through from Cloudflare headers\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ## Development Workflow
+\f1\b0 \cf4 \cb1 \strokec4 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Make changes locally on your Mac\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  SCP templates directly to the Pi for instant preview (no restart needed for HTML/CSS/JS changes):\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3   ```bash\cb1 \
+\cb3   \cf7 \strokec7 scp templates/draw.html user@PI_IP:~/livedoodle/templates/draw.html\cf4 \cb1 \strokec4 \
+\cb3   ```\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Changes to \cf6 \strokec6 `main.py`\cf4 \strokec4  require restarting the service:\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3   ```bash\cb1 \
+\cb3   \cf7 \strokec7 scp main.py user@PI_IP:~/livedoodle/main.py\cf4 \cb1 \strokec4 \
+\cb3   \cf7 \strokec7 ssh user@PI_IP \cf6 \strokec6 "sudo systemctl restart livedoodle"\cf4 \cb1 \strokec4 \
+\cb3   ```\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Run locally for development:\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3   ```bash\cb1 \
+\cb3   \cf7 \strokec7 uvicorn main:app --reload\cf4 \cb1 \strokec4 \
+\cb3   ```\cb1 \
+\
+\cb3 ---\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 ## Push Notifications (Optional)
+\f1\b0 \cf4 \cb1 \strokec4 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 Uses ntfy.sh (free, no account needed for basic use):\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  When a drawing is submitted, POST to \cf6 \strokec6 `https://ntfy.sh/your-topic-name`\cf4 \cb1 \strokec4 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  When a guestbook entry is submitted, POST to a different topic\cb1 \
+\cf5 \cb3 \strokec5 -\cf4 \strokec4  Subscribe to those topics in the ntfy mobile app to get notified\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b \cf2 \cb3 \strokec2 **AI prompt:**
+\f1\b0 \cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 "Add fire-and-forget push notifications to the FastAPI app using httpx. When a drawing is submitted, send a POST to https://ntfy.sh/my-drawing-topic with a title and body. When a guestbook entry is submitted, send to https://ntfy.sh/my-guestbook-topic. Use asyncio.create_task so it never blocks the WebSocket handler."\cb1 \
+\
+}

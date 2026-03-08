@@ -12,7 +12,7 @@ from fastapi.templating import Jinja2Templates
 CAMERA_URL = "http://10.0.0.8:8080/?action=snapshot"
 POLL_INTERVAL = 0.1  # seconds
 ARTWORK_FILE = "artwork_history.json"
-MAX_ARTWORK = 25
+MAX_ARTWORK = 100
 GUESTBOOK_FILE = "guestbook.json"
 MAX_GUESTBOOK = 200
 HOME_STATUS_FILE = "home_status.json"
@@ -402,7 +402,9 @@ manager = ConnectionManager()
 
 @app.get("/", response_class=HTMLResponse)
 async def home_page(request: Request):
-    return templates.TemplateResponse("home.html", {"request": request, "is_home": _is_home})
+    drawing = len(manager.draw_clients) > 0
+    session_elapsed = (time.time() - manager.session_start) if manager.session_start is not None else None
+    return templates.TemplateResponse("home.html", {"request": request, "is_home": _is_home, "drawing": drawing, "session_elapsed": session_elapsed})
 
 
 @app.post("/set-home")
@@ -665,6 +667,11 @@ async def activity():
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
     global _last_visitor_time
+    if role == "draw" and manager.draw_clients:
+        await websocket.accept()
+        await websocket.send_text(json.dumps({"type": "busy"}))
+        await websocket.close()
+        return
     await manager.connect(websocket, role)
     if role == "draw":
         _last_visitor_time = time.time()

@@ -1135,6 +1135,12 @@
   }
 
   function handleServerMessage(msg) {
+    if (msg.type === "busy") {
+      ws.onclose = null;
+      ws.close();
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0a0a;font-family:\'Share Tech Mono\',monospace;font-size:14px;letter-spacing:0.2em;color:#ffb300;text-align:center;padding:20px;">SOMEONE IS ALREADY DRAWING.<br><br><a href="/" style="color:#00e5ff;text-decoration:none;">← BACK</a></div>';
+      return;
+    }
     if (msg.type === "sync" && msg.history && msg.history.length > 0) {
       baseHistory = msg.history;
       ctx.clearRect(0, 0, canvas.width, canvas.height);

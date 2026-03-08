@@ -373,7 +373,7 @@
   </div>
 
   <div id="actions">
-    <a id="draw-btn" href="/draw">DRAW!</a>
+    <a id="draw-btn" {% if not drawing %}href="/draw"{% endif %} {% if drawing %}class="busy"{% endif %}>{% if drawing %}SOMEONE IS DRAWING<br><span id="draw-countdown"></span>{% else %}DRAW!{% endif %}</a>
     <p id="hint">renders on a 7"<br>raspberry pi screen<br>in my house</p>
   </div>
 
@@ -398,7 +398,7 @@
   // Draw button availability + synced countdown
   const drawBtn = document.getElementById("draw-btn");
   const SESSION_MS = 5 * 60 * 1000;
-  let localDeadline = null;
+  let localDeadline = {% if drawing and session_elapsed is not none %}Date.now() + (SESSION_MS - {{ session_elapsed | int }} * 1000){% else %}null{% endif %};
   let countdownInterval = null;
 
   function updateDrawBtn(drawing, sessionElapsed) {
@@ -447,6 +447,7 @@
       updateArtworkBtn(artwork_editing);
     } catch (_) {}
   }
+  if (localDeadline) { tickCountdown(); countdownInterval = setInterval(tickCountdown, 1000); }
   pollStatus();
   setInterval(pollStatus, 500);
 
