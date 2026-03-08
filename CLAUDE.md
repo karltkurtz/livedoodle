@@ -351,9 +351,44 @@ Stamp flow:
 
 ## Planned / TODO
 
-- ~~Fix draw session race condition~~ — DONE: server sends `{type:"busy"}` and closes on duplicate draw connect; home.html renders button state server-side; draw.html shows busy screen if rejected
-- ~~Increase `MAX_ARTWORK` to 100~~ — DONE
-- **START HERE NEXT TIME:** Fix fill tool on Pi LCD (see Fill Tool section above for next debugging steps)
+### START HERE NEXT TIME
+**Fix fill tool on Pi LCD.** Flood fill works on draw.html (user sees it) and saves to artwork correctly, but does NOT render on the Pi display. See the Fill Tool section for full context. Next things to try:
+- SSH to Pi, open browser dev tools, check for JS errors during fill
+- Test if `ctx.getImageData` returns correct data on Pi by logging pixel values
+- Try wrapping `floodFill` call in `requestAnimationFrame` in display.html to flush GPU before pixel read
+- Check if Pi's Chromium version has known `getImageData` bugs on hardware-accelerated canvases
+- Consider sending fill result as a full canvas snapshot (dataURL stamp) instead of re-computing flood fill on display
+
+### Recently Completed
+- ~~Fix draw session race condition~~ — server sends `{type:"busy"}` and closes on duplicate draw connect; home.html renders button state server-side; draw.html shows busy screen if rejected
+- ~~Increase `MAX_ARTWORK` to 100~~ — done, drops oldest when full
+- ~~Heatmap continent/country outlines~~ — topojson-client + world-atlas from jsDelivr CDN
+- ~~Heatmap HOME button moved to upper-right nav~~
+- ~~Eraser cursor~~ — custom SVG eraser cursor when eraser tool is active; resets on swatch click
+- ~~Picker popup colored borders~~ — SHAPES=purple, EMOJI=amber, QUOTES=coral
+- ~~Color palette reduced to 11~~ — black, gray, white, brown, red, orange, yellow, green, blue, indigo, violet
+- ~~Active swatch scales to 1.5×~~ — deselects back to 1×
+- ~~Tri-state presence system~~ — home / away / coding (replaces bool `_is_home`); coding state has pulsing amber animation on home page, right-aligned
+- ~~DRAW! button shows drawer location~~ — "SOMEONE IN BROOKLYN, NY IS DRAWING" (server-rendered + JS-updated via `/status`); falls back to "SOMEONE IS DRAWING" if no location
+
+### Bugs / Edge Cases to Watch
+- **Fill on Pi display** — see START HERE above; infrastructure is complete but rendering broken on Pi LCD
+- **Toolbar layout fragility** — `margin-top: -60px` on `#tools-section` is a workaround for phantom `#stamp-controls` height (visibility:hidden but still in layout); if layout shifts unexpectedly, this is why
+- **DRAW! button location text** — location comes from ip-api.com at draw connect time; if lookup fails or IP is private, location is blank and button falls back to "SOMEONE IS DRAWING" gracefully
+- **Old unauthenticated endpoints** — `POST /set-home` and `POST /set-away` still exist without password protection; low risk but should be removed or gated
+
+### Backlog
 - Replace Venmo placeholder in `donate.html` with real username
 - Remove or protect old unauthenticated `POST /set-home` and `POST /set-away` endpoints
-- Further toolbar layout tuning may be needed — the SHAPES/BRUSH/EMOJI/QUOTES button position (`margin-top: -60px` on `#tools-section`) is a workaround for the phantom `#stamp-controls` height; revisit if layout shifts unexpectedly
+
+### New Feature Ideas
+- **Reactions** — home page visitors send live emoji reactions (heart, fire, etc.) that briefly appear on `/display`
+- **Rooms / concurrent canvases** — multiple channels people can choose from
+- **WebRTC audio** — drawer can optionally unmute and talk while drawing (like Jackbox)
+- **Chat** — live text chat alongside the canvas
+- **Multiplayer games** — e.g. tic-tac-toe on the canvas
+- **ntfy notifications for donations** — fire a push notification when someone donates
+- **Fill cursor** — when FILL tool is selected, change mouse cursor to a bucket icon (mirrors eraser cursor feature)
+- **Holiday/seasonal site-wide background** — background changes based on current holidays or events
+- **Holiday welcome message on home page** — reflect current holidays/events in the home page greeting
+- **Seasonal art and themes on /draw** — special stamps, colors, or prompts active only during specific dates/seasons/holidays
