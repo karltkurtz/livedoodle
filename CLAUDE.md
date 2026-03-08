@@ -403,6 +403,19 @@ Stamp flow:
 - **Switch livestream from JS polling to MJPEG proxy** — replace 100ms JS polling loop with a persistent MJPEG stream proxied through Pi A; more efficient for both client browsers and the Pi
 - **Auto-expire draw session on heartbeat timeout** — if the draw client disconnects ungracefully (crash, network drop, phone lock), the server stays stuck in "drawing" state; fix by auto-expiring the session after ~30–45s of no heartbeat
 
+### YouTube Livestream Prototype (Mac-only, not deployed)
+**Purpose:** Fallback plan in case Cloudflare throttles the MJPEG stream at scale. Build a local prototype on Mac to evaluate YouTube Live as an alternative before needing it in production.
+
+**Plan:**
+1. Create a YouTube Live stream and get a stream key
+2. Use OBS or ffmpeg on Mac to push Mac webcam to YouTube via RTMP
+3. Swap `<img id="stream">` in a local copy of `home.html` with a YouTube iframe embed
+4. Run the FastAPI server locally and test the full experience
+
+**Key tradeoff to evaluate:** YouTube's low-latency mode is ~3–5s, ultra-low is ~1–2s. The prototype's main purpose is to *feel* whether that delay kills the live drawing experience (someone watching strokes appear with a 2s lag).
+
+**Important:** This is a Mac-only prototype, never deployed to Pi. Keep it as a contingency. The current MJPEG approach is preferred — it's lower latency, more personal, and has no third-party player UI. Only switch if Cloudflare becomes a real problem.
+
 ### New Feature Ideas
 - **Reactions** — home page visitors send live emoji reactions (heart, fire, etc.) that briefly appear on `/display`
 - **Rooms / concurrent canvases** — multiple channels people can choose from

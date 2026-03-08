@@ -22,7 +22,7 @@ CHAT_RATE_LIMIT = 3.0  # seconds between chat messages per view connection
 CHAT_FILE = "chat_history.json"
 MAX_CHAT = 30
 VISITORS_FILE = "visitors.json"
-MAX_VISITORS = 500
+MAX_VISITORS = 50000
 
 PROMPTS = [
     "a robot eating pizza",

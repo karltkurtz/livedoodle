@@ -161,14 +161,24 @@
       text-transform: uppercase;
       padding: 7px 10px;
       cursor: pointer;
-      box-shadow: none;
       display: block;
       text-align: center;
+      animation: chat-pulse 3s ease-in-out infinite;
+    }
+
+    #chat-toggle.has-unread {
+      animation: chat-pulse 1.6s ease-in-out infinite;
     }
 
     #chat-toggle.active {
       background: rgba(0,229,255,0.06);
       border-bottom-color: transparent;
+      animation: none;
+    }
+
+    @keyframes chat-pulse {
+      0%, 100% { border-color: rgba(0,229,255,0.2);  box-shadow: none; }
+      50%       { border-color: rgba(0,229,255,0.8);  box-shadow: 0 0 14px rgba(0,229,255,0.4), 0 0 32px rgba(0,229,255,0.15); }
     }
 
     h1 {
@@ -632,10 +642,13 @@
   function updateChatToggleLabel(open) {
     if (open) {
       chatToggle.innerHTML = "CLOSE CHAT";
+      chatToggle.classList.remove("has-unread");
     } else if (unreadChat > 0) {
       chatToggle.innerHTML = `OPEN CHAT &nbsp;<span style="color:var(--green)">[${unreadChat} NEW]</span>`;
+      chatToggle.classList.add("has-unread");
     } else {
       chatToggle.innerHTML = "OPEN CHAT";
+      chatToggle.classList.remove("has-unread");
     }
   }
 
