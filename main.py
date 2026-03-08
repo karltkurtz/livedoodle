@@ -19,6 +19,8 @@ HOME_STATUS_FILE = "home_status.json"
 ADMIN_PASSWORD = "live032319"
 HEARTBEAT_TIMEOUT = 45  # seconds; draw session auto-expires if no message received
 CHAT_RATE_LIMIT = 3.0  # seconds between chat messages per view connection
+CHAT_FILE = "chat_history.json"
+MAX_CHAT = 30
 VISITORS_FILE = "visitors.json"
 MAX_VISITORS = 500
 
@@ -242,6 +244,21 @@ async def _lookup_geo(ip: str) -> str:
     return ""
 
 
+def _load_chat() -> list:
+    if os.path.exists(CHAT_FILE):
+        try:
+            with open(CHAT_FILE) as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return []
+
+
+def _save_chat(entries: list):
+    with open(CHAT_FILE, "w") as f:
+        json.dump(entries, f)
+
+
 def _load_guestbook() -> list:
     if os.path.exists(GUESTBOOK_FILE):
         try:
@@ -297,6 +314,7 @@ async def startup():
     global _presence, _visitors
     _presence = _load_home_status()
     _visitors = _load_visitors()
+    manager.chat_history = _load_chat()
     asyncio.create_task(_poll_camera())
 
 
@@ -310,6 +328,7 @@ class ConnectionManager:
         self.session_start: float | None = None
         self._view_last_reaction: dict[int, float] = {}  # id(websocket) → timestamp
         self._view_last_chat: dict[int, float] = {}  # id(websocket) → timestamp
+        self.chat_history: list[dict] = []
 
     async def connect(self, websocket: WebSocket, role: str):
         await websocket.accept()
@@ -336,6 +355,10 @@ class ConnectionManager:
             ip = _get_ws_ip(websocket)
             self._client_ips[id(websocket)] = ip
             asyncio.create_task(_record_view_location(ip))
+            if self.chat_history:
+                await websocket.send_text(
+                    json.dumps({"type": "chat_history", "messages": self.chat_history})
+                )
 
     def disconnect(self, websocket: WebSocket, role: str):
         if role == "draw" and websocket in self.draw_clients:
@@ -769,7 +792,12 @@ async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
                             ip = manager._client_ips.get(id(websocket), "")
                             location = _geo_cache.get(ip, "").strip()
                             from_label = location.upper() if location else "VISITOR"
-                            await manager.broadcast_to_views({"type": "chat", "text": text, "from": from_label})
+                            msg = {"type": "chat", "text": text, "from": from_label, "time": now}
+                            manager.chat_history.append(msg)
+                            if len(manager.chat_history) > MAX_CHAT:
+                                manager.chat_history = manager.chat_history[-MAX_CHAT:]
+                            _save_chat(manager.chat_history)
+                            await manager.broadcast_to_views(msg)
     except WebSocketDisconnect:
         pass
     finally:

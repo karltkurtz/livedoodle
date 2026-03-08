@@ -218,6 +218,13 @@
       word-break: break-word;
     }
 
+    .chat-time {
+      color: #444;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      margin-right: 4px;
+    }
+
     .chat-from {
       color: var(--teal);
       opacity: 0.8;
@@ -533,8 +540,10 @@
   // Draw button availability + synced countdown
   const drawBtn = document.getElementById("draw-btn");
   const SESSION_MS = 5 * 60 * 1000;
+  const SUBMIT_WINDOW_MS = 30 * 1000;
   let localDeadline = {% if drawing and session_elapsed is not none %}Date.now() + (SESSION_MS - {{ session_elapsed | int }} * 1000){% else %}null{% endif %};
   let countdownInterval = null;
+  let inSubmitPhase = false;
 
   const reactBtns = document.querySelectorAll(".react-btn");
 
@@ -562,6 +571,7 @@
       drawBtn.textContent = "DRAW!";
       drawBtn.setAttribute("href", "/draw");
       localDeadline = null;
+      inSubmitPhase = false;
       clearInterval(countdownInterval);
       countdownInterval = null;
       setReactionsEnabled(false);
@@ -569,12 +579,24 @@
   }
 
   function tickCountdown() {
-    const el = document.getElementById("draw-countdown");
-    if (!el || localDeadline === null) return;
-    const remaining = Math.max(0, localDeadline - Date.now());
-    const mins = Math.floor(remaining / 60000);
-    const secs = Math.floor((remaining % 60000) / 1000);
-    el.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
+    if (localDeadline === null) return;
+    const remaining = localDeadline - Date.now();
+    if (remaining > 0) {
+      inSubmitPhase = false;
+      const el = document.getElementById("draw-countdown");
+      if (!el) return;
+      const mins = Math.floor(remaining / 60000);
+      const secs = Math.floor((remaining % 60000) / 1000);
+      el.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
+    } else {
+      const autoSecs = Math.max(0, Math.ceil((localDeadline + SUBMIT_WINDOW_MS - Date.now()) / 1000));
+      if (!inSubmitPhase) {
+        inSubmitPhase = true;
+        drawBtn.innerHTML = `CURRENT USER IS SIGNING OFF<br><span id="draw-countdown"></span>`;
+      }
+      const el = document.getElementById("draw-countdown");
+      if (el) el.textContent = autoSecs > 0 ? `AUTO-SUBMITTING IN ${autoSecs}S` : `SUBMITTING...`;
+    }
   }
 
   const viewerNumEl = document.getElementById("viewer-num");
@@ -609,9 +631,11 @@
 
   function updateChatToggleLabel(open) {
     if (open) {
-      chatToggle.textContent = "CLOSE CHAT";
+      chatToggle.innerHTML = "CLOSE CHAT";
+    } else if (unreadChat > 0) {
+      chatToggle.innerHTML = `OPEN CHAT &nbsp;<span style="color:var(--green)">[${unreadChat} NEW]</span>`;
     } else {
-      chatToggle.textContent = unreadChat > 0 ? `OPEN CHAT  [${unreadChat} NEW]` : "OPEN CHAT";
+      chatToggle.innerHTML = "OPEN CHAT";
     }
   }
 
@@ -623,16 +647,21 @@
     if (open) chatInput.focus();
   });
 
-  function addChatMsg(from, text) {
+  function formatChatTime(epoch) {
+    return new Date(epoch * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function addChatMsg(from, text, epoch, skipUnread) {
     const el = document.createElement("div");
     el.className = "chat-msg";
-    el.innerHTML = `<span class="chat-from">${from}:</span> <span class="chat-text">${text.replace(/</g, "&lt;")}</span>`;
+    const timeStr = epoch ? `<span class="chat-time">${formatChatTime(epoch)}</span>` : "";
+    el.innerHTML = `${timeStr}<span class="chat-from">${from}:</span> <span class="chat-text">${text.replace(/</g, "&lt;")}</span>`;
     chatMessages.appendChild(el);
     while (chatMessages.children.length > MAX_CHAT_MSGS) {
       chatMessages.removeChild(chatMessages.firstChild);
     }
     chatMessages.scrollTop = chatMessages.scrollHeight;
-    if (!chatPanel.classList.contains("open")) {
+    if (!skipUnread && !chatPanel.classList.contains("open")) {
       unreadChat++;
       updateChatToggleLabel(false);
     }
@@ -659,7 +688,10 @@
     vws.onmessage = e => {
       const msg = JSON.parse(e.data);
       if (msg.type === "artwork_submitted") triggerBurst();
-      else if (msg.type === "chat") addChatMsg(msg.from, msg.text);
+      else if (msg.type === "chat") addChatMsg(msg.from, msg.text, msg.time, false);
+      else if (msg.type === "chat_history") {
+        msg.messages.forEach(m => addChatMsg(m.from, m.text, m.time, true));
+      }
     };
     vws.onclose = () => { _vws = null; setTimeout(connectView, 3000); };
   }

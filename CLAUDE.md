@@ -91,7 +91,15 @@ Clients connect to `/ws` with a `role` query param. The server's `ConnectionMana
 
 // Server → display clients (force page reload)
 {"type": "reload"}
+
+// View → server (chat message from a viewer)
+{"type": "chat", "text": "hello!"}
+
+// Server → all view clients (broadcast chat message)
+{"type": "chat", "text": "hello!", "from": "BROOKLYN, NY, US"}
 ```
+
+**Chat rate limiting:** `CHAT_RATE_LIMIT = 3.0` seconds per view connection (tracked in `manager._view_last_chat`). Text truncated to 200 chars server-side. `from` label is ip-api.com geo string uppercased; falls back to `"VISITOR"` if no geo data.
 
 ### Coordinates and Sizing
 
@@ -109,6 +117,9 @@ All stroke coordinates and stamp positions/sizes use **normalized values** (0.0�
 
 `_artwork_editing: bool` — set `True` by `POST /artwork/edit-start`, `False` by `POST /artwork/edit-end`. Included in `/status` so the home page PAST ARTWORK button disables cross-device when the admin is in edit mode.
 
+`manager._client_ips: dict[int, str]` — maps `id(websocket)` → IP string for both draw and view clients; used to look up geo for DRAW! button location and chat sender labels.
+`manager._view_last_chat: dict[int, float]` — maps `id(websocket)` → last chat timestamp for rate limiting.
+
 ## Files
 
 ```
@@ -121,7 +132,7 @@ templates/guestbook.html   # Guestbook with sign form
 templates/about.html       # About page
 templates/donate.html      # Donate page (Venmo placeholder — needs real username)
 templates/admin.html       # Password-protected admin panel
-artwork_history.json       # Flat JSON array of saved artwork entries (max 25)
+artwork_history.json       # Flat JSON array of saved artwork entries (max 100)
 guestbook.json             # Flat JSON array of guestbook entries (max 200)
 home_status.json           # Persisted presence status: {"home": true|false}
 og-image.png               # Open Graph image served at /og-image.png (639×507)
@@ -161,8 +172,11 @@ website-aesthetic.rtf      # Design brief — retro arcade / lo-fi pixel art aes
 - Both blink dots synced via JS `animationDelay` at page load
 - Presence status (`#presence`) in meta row: "I AM HOME" (green) or "I AM AWAY" (amber) — rendered server-side via Jinja2
 - h1: `clamp(35px, 9.4vw, 59px)` — reduced ~33% from original
-- DRAW! button amber when busy (someone else drawing), shows countdown timer
+- DRAW! button amber when busy (someone else drawing), shows countdown timer and drawer's city/region/country
 - Corner-bracket frame around livestream via `::before`/`::after` pseudo-elements on `#stream-frame` and `#stream-inner`
+- Livestream `<img>` src set via JS on load with timestamp (`/stream?<Date.now()>`) to bust browser cache
+- Reaction buttons (emoji burst) disabled (opacity 0.35, grayscale) when no draw session active; enabled when session starts via `/status` poll
+- **Chat panel:** collapsible below livestream, viewers-only; `#chat-toggle` button sits between stream and panel with `border-top: none`; button says "OPEN CHAT" / "CLOSE CHAT"; unread count shown in green as `[N NEW]` when panel is closed and messages arrive; max 10 messages (oldest drops); 3s rate limit per connection; geo-labeled senders (city/region/country, no "VIEWER FROM" prefix); session-only (in-memory, no persistence); iOS Safari zoom prevented via `font-size: 16px` on input
 
 **Draw page specifics:**
 - Timer bar below canvas, 36px coral countdown
@@ -352,6 +366,8 @@ Stamp flow:
 ## Planned / TODO
 
 ### START HERE NEXT TIME
+**Merge `chat-feature` branch.** Chat feature is complete and committed on `chat-feature` branch. When ready, merge into `main` and deploy to Pi.
+
 **Fix fill tool on Pi LCD.** Flood fill works on draw.html (user sees it) and saves to artwork correctly, but does NOT render on the Pi display. See the Fill Tool section for full context. Next things to try:
 - SSH to Pi, open browser dev tools, check for JS errors during fill
 - Test if `ctx.getImageData` returns correct data on Pi by logging pixel values
@@ -370,6 +386,10 @@ Stamp flow:
 - ~~Active swatch scales to 1.5×~~ — deselects back to 1×
 - ~~Tri-state presence system~~ — home / away / coding (replaces bool `_is_home`); coding state has pulsing amber animation on home page, right-aligned
 - ~~DRAW! button shows drawer location~~ — "SOMEONE IN BROOKLYN, NY IS DRAWING" (server-rendered + JS-updated via `/status`); falls back to "SOMEONE IS DRAWING" if no location
+- ~~Reaction buttons disabled when no session active~~ — opacity 0.35 + grayscale; enabled when draw session detected via `/status` poll
+- ~~Livestream cache-bust~~ — JS sets `img.src = "/stream?" + Date.now()` on page load to prevent browser caching stale/black frame
+- ~~Live chat feature~~ — collapsible panel on home page, viewers-only, geo-labeled, session-only, 3s rate limit, 10 message cap, unread counter in green on OPEN CHAT button
+- ~~Removed tagline~~ — "// real strokes · real screen · no signup" paragraph removed from home page
 
 ### Bugs / Edge Cases to Watch
 - **Fill on Pi display** — see START HERE above; infrastructure is complete but rendering broken on Pi LCD
@@ -387,7 +407,6 @@ Stamp flow:
 - **Reactions** — home page visitors send live emoji reactions (heart, fire, etc.) that briefly appear on `/display`
 - **Rooms / concurrent canvases** — multiple channels people can choose from
 - **WebRTC audio** — drawer can optionally unmute and talk while drawing (like Jackbox)
-- **Chat** — live text chat alongside the canvas
 - **Multiplayer games** — e.g. tic-tac-toe on the canvas
 - **ntfy notifications for donations** — fire a push notification when someone donates
 - **Fill cursor** — when FILL tool is selected, change mouse cursor to a bucket icon (mirrors eraser cursor feature)
