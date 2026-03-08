@@ -878,7 +878,8 @@ async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
                 elif message["type"] in ("stroke", "stamp", "fill"):
                     if not manager.history:
                         await manager.broadcast_to_displays({"type": "clear"})
-                    manager.update_history(message)
+                    if not message.get("ephemeral"):
+                        manager.update_history(message)
                     await manager.broadcast_to_displays(message)
                 elif message["type"] == "finish":
                     name = str(message.get("name", "Anonymous")).strip() or "Anonymous"
