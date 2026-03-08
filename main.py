@@ -778,7 +778,7 @@ async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
             elif role == "view":
                 if message.get("type") == "reaction":
                     emoji = message.get("emoji", "")
-                    if emoji in {"❤️", "🔥", "👏"}:
+                    if emoji in {"❤️", "🔥", "👏", "🤯", "👀", "✨", "😂"}:
                         now = time.time()
                         if now - manager._view_last_reaction.get(id(websocket), 0) >= 0.3:
                             manager._view_last_reaction[id(websocket)] = now
