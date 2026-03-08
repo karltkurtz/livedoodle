@@ -307,6 +307,7 @@ class ConnectionManager:
         self.history: list[dict] = []
         self._client_ips: dict[int, str] = {}  # id(websocket) → ip
         self.session_start: float | None = None
+        self._view_last_reaction: dict[int, float] = {}  # id(websocket) → timestamp
 
     async def connect(self, websocket: WebSocket, role: str):
         await websocket.accept()
@@ -328,6 +329,7 @@ class ConnectionManager:
             )
         elif role == "view":
             self.view_clients.append(websocket)
+            self._view_last_reaction[id(websocket)] = 0
             ip = _get_ws_ip(websocket)
             asyncio.create_task(_record_view_location(ip))
 
@@ -341,6 +343,7 @@ class ConnectionManager:
             self.display_clients.remove(websocket)
         elif role == "view" and websocket in self.view_clients:
             self.view_clients.remove(websocket)
+            self._view_last_reaction.pop(id(websocket), None)
 
     def update_history(self, message: dict):
         if message["type"] in ("stroke", "stamp", "fill"):
@@ -743,6 +746,14 @@ async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
                 elif message["type"] == "wipe":
                     manager.history.clear()
                     await manager.broadcast_to_displays({"type": "clear"})
+            elif role == "view":
+                if message.get("type") == "reaction":
+                    emoji = message.get("emoji", "")
+                    if emoji in {"❤️", "🔥", "👏"}:
+                        now = time.time()
+                        if now - manager._view_last_reaction.get(id(websocket), 0) >= 0.3:
+                            manager._view_last_reaction[id(websocket)] = now
+                            await manager.broadcast_to_displays({"type": "reaction", "emoji": emoji})
     except WebSocketDisconnect:
         pass
     finally:

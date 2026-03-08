@@ -95,10 +95,31 @@
       text-shadow: 0 0 10px rgba(0,229,255,0.4);
       text-transform: uppercase;
     }
+
+    #reaction-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 50;
+      overflow: hidden;
+    }
+
+    .reaction-emoji {
+      position: absolute;
+      line-height: 1;
+      animation: emoji-float 2.5s ease-out forwards;
+    }
+
+    @keyframes emoji-float {
+      0%   { transform: translateY(0) scale(1);        opacity: 0.95; }
+      15%  { transform: translateY(-6vh) scale(1.2);   opacity: 1;    }
+      100% { transform: translateY(-48vh) scale(0.55); opacity: 0;    }
+    }
   </style>
 </head>
 <body>
 <canvas id="canvas"></canvas>
+<div id="reaction-overlay"></div>
 
 <!-- Screensaver overlay -->
 <div id="screensaver">
@@ -223,6 +244,23 @@
     }
   }
 
+  function spawnReaction(emoji) {
+    const overlay = document.getElementById("reaction-overlay");
+    for (let i = 0; i < 5; i++) {
+      setTimeout(() => {
+        const el = document.createElement("div");
+        el.className = "reaction-emoji";
+        el.textContent = emoji;
+        const x = 72 + Math.random() * 20;
+        const size = 38 + Math.random() * 28;
+        const duration = 2.1 + Math.random() * 0.8;
+        el.style.cssText = `left:${x}%;bottom:12%;font-size:${size}px;animation-duration:${duration}s;`;
+        overlay.appendChild(el);
+        setTimeout(() => el.remove(), (duration + 0.15) * 1000);
+      }, i * 160);
+    }
+  }
+
   function handleMessage(msg) {
     if (msg.type === "sync") {
       history = msg.history;
@@ -245,6 +283,8 @@
     } else if (msg.type === "clear") {
       history = [];
       clearCanvas();
+    } else if (msg.type === "reaction") {
+      spawnReaction(msg.emoji);
     } else if (msg.type === "reload") {
       location.reload();
     }
