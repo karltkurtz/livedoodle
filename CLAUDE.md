@@ -366,6 +366,41 @@ Stamp flow:
 ## Planned / TODO
 
 ### START HERE NEXT TIME
+**LLM content moderation — branch `LLM-monitoring`. TOP PRIORITY.**
+
+Feature is fully designed but NOT YET IMPLEMENTED. Waiting on user to create Groq API key and set it up on Pi before coding begins.
+
+**User setup steps (must be done first):**
+1. Go to console.groq.com → API Keys → Create API Key → copy it
+2. SSH to Pi and run:
+   ```bash
+   echo "GROQ_API_KEY=your_key_here" > ~/livedoodle/.env
+   chmod 600 ~/livedoodle/.env
+   ```
+3. Tell Claude — then implementation begins
+
+**What gets built:**
+- `main.py`:
+  - `GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")` — loaded from env
+  - Background `_moderation_loop()` task: runs every 60s, skips if no active draw session, sends `_latest_frame` (already cached by camera poll loop) to Groq vision API as base64
+  - Model: `llama-3.2-11b-vision-preview` (free tier); prompt flags nudity, hate symbols/slurs, graphic violence, racist imagery — only clear obvious violations
+  - Response parsed as `{"flagged": bool, "reason": str}`
+  - On flagged: broadcast `{type:"clear"}` to displays, broadcast `{type:"whoops", reason:"..."}` to ALL clients (draw + display + view), gracefully disconnect draw WebSocket, log to `moderation_log.json`
+  - After saving artwork on `finish`: async moderation check on `_latest_frame`; if flagged, silently delete the entry from `artwork_history.json` — no message to anyone
+  - All Groq API calls via `httpx` (already a dependency), non-blocking; errors logged and swallowed — never crash the loop
+- `moderation_log.json`: `[{ip, reason, timestamp, session_duration}, ...]` — never exposed via any route
+- `display.html`: fullscreen coral whoops overlay on `{type:"whoops"}` message — retro arcade style, shows flagged reason, auto-clears after 5s, returns to normal canvas
+- `draw.html`: whoops screen on `{type:"whoops"}` message — concisely explains why flagged, redirects to `/` after 4s
+- `livedoodle.service`: add `EnvironmentFile=/home/karltkurtz/livedoodle/.env` to `[Service]` section
+- `.gitignore`: ensure `.env` is excluded
+
+**Merge order:**
+1. Merge `chat-feature` → `main` first
+2. Rebase or merge `LLM-monitoring` on top of that
+3. Deploy both together
+
+---
+
 **Merge `chat-feature` branch.** Chat feature is complete and committed on `chat-feature` branch. When ready, merge into `main` and deploy to Pi.
 
 **Fix fill tool on Pi LCD.** Flood fill works on draw.html (user sees it) and saves to artwork correctly, but does NOT render on the Pi display. See the Fill Tool section for full context. Next things to try:
