@@ -253,6 +253,7 @@
 
     .react-btn:active { transform: scale(0.82); }
     .react-btn.cooling { opacity: 0.35; pointer-events: none; }
+    .react-btn.disabled { opacity: 0.35; pointer-events: none; cursor: default; filter: grayscale(1); }
 
     #viewer-count {
       position: absolute;
@@ -398,7 +399,7 @@
         LIVE
       </div>
       <div id="stream-wrapper">
-        <img id="stream" src="/stream" alt="" />
+        <img id="stream" alt="" />
         <div id="reaction-btns">
           <button class="react-btn" data-emoji="❤️">❤️</button>
           <button class="react-btn" data-emoji="🔥">🔥</button>
@@ -434,6 +435,15 @@
   let localDeadline = {% if drawing and session_elapsed is not none %}Date.now() + (SESSION_MS - {{ session_elapsed | int }} * 1000){% else %}null{% endif %};
   let countdownInterval = null;
 
+  const reactBtns = document.querySelectorAll(".react-btn");
+
+  function setReactionsEnabled(enabled) {
+    reactBtns.forEach(btn => {
+      if (enabled) btn.classList.remove("disabled");
+      else btn.classList.add("disabled");
+    });
+  }
+
   function updateDrawBtn(drawing, sessionElapsed, lastLocation) {
     if (drawing && sessionElapsed !== null) {
       localDeadline = Date.now() + (SESSION_MS - sessionElapsed * 1000);
@@ -445,6 +455,7 @@
       }
       tickCountdown();
       if (!countdownInterval) countdownInterval = setInterval(tickCountdown, 1000);
+      setReactionsEnabled(true);
     } else {
       drawBtn.classList.remove("busy");
       drawBtn.textContent = "DRAW!";
@@ -452,6 +463,7 @@
       localDeadline = null;
       clearInterval(countdownInterval);
       countdownInterval = null;
+      setReactionsEnabled(false);
     }
   }
 
@@ -481,6 +493,7 @@
       updateArtworkBtn(artwork_editing);
     } catch (_) {}
   }
+  setReactionsEnabled({% if drawing %}true{% else %}false{% endif %});
   if (localDeadline) { tickCountdown(); countdownInterval = setInterval(tickCountdown, 1000); }
   pollStatus();
   setInterval(pollStatus, 500);
@@ -500,9 +513,9 @@
   connectView();
 
   // Reaction buttons
-  document.querySelectorAll(".react-btn").forEach(btn => {
+  reactBtns.forEach(btn => {
     btn.addEventListener("click", () => {
-      if (btn.classList.contains("cooling")) return;
+      if (btn.classList.contains("cooling") || btn.classList.contains("disabled")) return;
       if (_vws && _vws.readyState === WebSocket.OPEN) {
         _vws.send(JSON.stringify({ type: "reaction", emoji: btn.dataset.emoji }));
       }
@@ -575,6 +588,9 @@
     ctx.globalAlpha = 1;
     requestAnimationFrame(tick);
   })();
+
+  // Force a fresh MJPEG stream connection (bypass browser cache)
+  document.getElementById("stream").src = "/stream?" + Date.now();
 
   // Sync blink dots to same phase
   const blinkDelay = -(performance.now() % 1000) + 'ms';
