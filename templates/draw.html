@@ -726,9 +726,6 @@
   </div>
 </div>
 
-<!-- Fill toast -->
-<div id="fill-toast" style="display:none;position:fixed;bottom:140px;left:50%;transform:translateX(-50%);background:#0a0a0a;border:1px solid var(--amber);box-shadow:0 0 14px rgba(255,179,0,0.3);color:var(--amber);font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;padding:10px 16px;white-space:nowrap;z-index:300;">THE FILL BUTTON IS BEING WORKED ON.</div>
-
 <!-- Shape picker overlay -->
 <div class="picker-overlay" id="shape-picker-overlay">
   <div class="picker-panel" style="border:1px solid var(--purple);box-shadow:0 0 18px rgba(191,95,255,0.3);">
@@ -948,14 +945,14 @@
     }
   });
 
-  // ── Fill (disabled) ──
-  const fillToast = document.getElementById("fill-toast");
+  // ── Fill ──
   const fillBtn = document.getElementById("fill-btn");
-  let fillToastTimer = null;
   fillBtn.addEventListener("click", () => {
-    clearTimeout(fillToastTimer);
-    fillToast.style.display = "block";
-    fillToastTimer = setTimeout(() => { fillToast.style.display = "none"; }, 3000);
+    isFilling = !isFilling;
+    isErasing = false;
+    eraserBtn.classList.remove("active");
+    fillBtn.classList.toggle("active", isFilling);
+    canvas.style.cursor = isFilling ? "crosshair" : "crosshair";
   });
 
   function floodFill(cx, cy, color) {
@@ -1059,10 +1056,12 @@
     if (isFilling) {
       const color = getColor();
       floodFill(x, y, color);
-      const fillMsg = { type: "fill", x: x / canvas.width, y: y / canvas.height, color };
-      undoStack.push(fillMsg);
+      // Send canvas snapshot as stamp so display doesn't need to re-run flood fill
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+      const stampMsg = { type: "stamp", data: dataUrl, x: 0.5, y: 0.5, w: 1.0, h: 1.0, r: 0 };
+      undoStack.push(stampMsg);
       updateUndoBtn();
-      send(fillMsg);
+      send(stampMsg);
       return;
     }
     drawing = true;
