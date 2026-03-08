@@ -94,8 +94,22 @@
       letter-spacing: 0.2em;
       text-transform: uppercase;
     }
-    #presence.home { color: var(--green); }
-    #presence.away { color: var(--amber); }
+    #presence.home   { color: var(--green); }
+    #presence.away   { color: var(--amber); }
+    #presence.coding {
+      color: var(--amber);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-align: right;
+      max-width: 220px;
+      line-height: 1.6;
+      animation: coding-pulse 2.4s ease-in-out infinite;
+    }
+
+    @keyframes coding-pulse {
+      0%, 100% { opacity: 0.6; text-shadow: none; }
+      50%       { opacity: 1;   text-shadow: 0 0 10px rgba(255,179,0,0.6), 0 0 22px rgba(255,179,0,0.2); }
+    }
 
     #wordmark-dot {
       width: 6px; height: 6px;
@@ -348,7 +362,7 @@
 
   <div id="meta">
     <span id="wordmark"><span id="wordmark-dot"></span>LiveDoodle</span>
-    <span id="presence" class="{{ 'home' if is_home else 'away' }}">AWAY STATUS: {{ 'I AM HOME' if is_home else 'I AM AWAY' }}</span>
+    <span id="presence" class="{{ presence }}">{% if presence == 'home' %}AWAY STATUS: I AM HOME{% elif presence == 'away' %}AWAY STATUS: I AM AWAY{% else %}I AM HOME AND MAKING CODE CHANGES TO UPDATE THE SITE. IF THINGS GET JANKY DURING YOUR VISIT, THAT'S WHY{% endif %}</span>
   </div>
 
   <div id="hero">
@@ -373,7 +387,7 @@
   </div>
 
   <div id="actions">
-    <a id="draw-btn" {% if not drawing %}href="/draw"{% endif %} {% if drawing %}class="busy"{% endif %}>{% if drawing %}SOMEONE IS DRAWING<br><span id="draw-countdown"></span>{% else %}DRAW!{% endif %}</a>
+    <a id="draw-btn" {% if not drawing %}href="/draw"{% endif %} {% if drawing %}class="busy"{% endif %}>{% if drawing %}SOMEONE{% if last_location %} IN {{ last_location | upper }}{% endif %} IS DRAWING<br><span id="draw-countdown"></span>{% else %}DRAW!{% endif %}</a>
     <p id="hint">renders on a 7"<br>raspberry pi screen<br>in my house</p>
   </div>
 
@@ -401,12 +415,13 @@
   let localDeadline = {% if drawing and session_elapsed is not none %}Date.now() + (SESSION_MS - {{ session_elapsed | int }} * 1000){% else %}null{% endif %};
   let countdownInterval = null;
 
-  function updateDrawBtn(drawing, sessionElapsed) {
+  function updateDrawBtn(drawing, sessionElapsed, lastLocation) {
     if (drawing && sessionElapsed !== null) {
       localDeadline = Date.now() + (SESSION_MS - sessionElapsed * 1000);
       if (!drawBtn.classList.contains("busy")) {
         drawBtn.classList.add("busy");
-        drawBtn.innerHTML = 'SOMEONE IS DRAWING<br><span id="draw-countdown"></span>';
+        const locText = lastLocation ? ` IN ${lastLocation.toUpperCase()}` : "";
+        drawBtn.innerHTML = `SOMEONE${locText} IS DRAWING<br><span id="draw-countdown"></span>`;
         drawBtn.removeAttribute("href");
       }
       tickCountdown();
@@ -438,7 +453,7 @@
     try {
       const r = await fetch("/status");
       const { drawing, session_elapsed, viewers, last_location, artwork_editing } = await r.json();
-      updateDrawBtn(drawing, session_elapsed);
+      updateDrawBtn(drawing, session_elapsed, last_location);
       if (viewers !== undefined) viewerNumEl.textContent = viewers;
       if (last_location) {
         lastVisitLocEl.textContent = last_location;

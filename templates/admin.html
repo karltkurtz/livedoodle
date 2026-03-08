@@ -441,6 +441,9 @@
         <button class="presence-btn" id="btn-home">I AM HOME</button>
         <button class="presence-btn" id="btn-away">I AM AWAY</button>
       </div>
+      <div style="margin-top:10px;">
+        <button class="presence-btn" id="btn-coding" style="width:100%;font-size:9px;letter-spacing:0.1em;line-height:1.5;">I AM HOME AND MAKING CODE CHANGES TO UPDATE THE SITE. IF THINGS GET JANKY DURING YOUR VISIT, THAT'S WHY</button>
+      </div>
       <div id="presence-status"></div>
     </div>
 
@@ -572,6 +575,20 @@
         body: JSON.stringify({ password: pw }),
       });
       if (r.ok) { setPresenceActive(false); statusEl.textContent = 'Updated.'; }
+      else { statusEl.textContent = 'Error.'; }
+    } catch (_) { statusEl.textContent = 'Network error.'; }
+    setTimeout(() => statusEl.textContent = '', 2000);
+  });
+
+  document.getElementById('btn-coding').addEventListener('click', async () => {
+    const statusEl = document.getElementById('presence-status');
+    try {
+      const r = await fetch('/admin/set-coding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw }),
+      });
+      if (r.ok) { statusEl.textContent = 'Updated.'; }
       else { statusEl.textContent = 'Error.'; }
     } catch (_) { statusEl.textContent = 'Network error.'; }
     setTimeout(() => statusEl.textContent = '', 2000);

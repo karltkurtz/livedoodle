@@ -133,7 +133,7 @@ templates = Jinja2Templates(directory="templates")
 
 _latest_frame: bytes | None = None
 _geo_cache: dict[str, str] = {}
-_is_home: bool = True
+_presence: str = "home"  # "home" | "away" | "coding"
 _last_location: str = ""
 _last_visitor_time: float = 0.0
 _artwork_editing: bool = False
@@ -141,19 +141,23 @@ _visitors: list[dict] = []
 _visitor_ips: set[str] = set()
 
 
-def _load_home_status() -> bool:
+def _load_home_status() -> str:
     if os.path.exists(HOME_STATUS_FILE):
         try:
             with open(HOME_STATUS_FILE) as f:
-                return json.load(f).get("home", True)
+                data = json.load(f)
+                if "presence" in data:
+                    return data["presence"]
+                # backward compat: old {"home": true/false} format
+                return "home" if data.get("home", True) else "away"
         except Exception:
             pass
-    return True
+    return "home"
 
 
-def _save_home_status(home: bool):
+def _save_home_status(presence: str):
     with open(HOME_STATUS_FILE, "w") as f:
-        json.dump({"home": home}, f)
+        json.dump({"presence": presence}, f)
 
 
 def _load_visitors() -> list:
@@ -288,8 +292,8 @@ async def _poll_camera():
 
 @app.on_event("startup")
 async def startup():
-    global _is_home, _visitors
-    _is_home = _load_home_status()
+    global _presence, _visitors
+    _presence = _load_home_status()
     _visitors = _load_visitors()
     asyncio.create_task(_poll_camera())
 
@@ -404,23 +408,23 @@ manager = ConnectionManager()
 async def home_page(request: Request):
     drawing = len(manager.draw_clients) > 0
     session_elapsed = (time.time() - manager.session_start) if manager.session_start is not None else None
-    return templates.TemplateResponse("home.html", {"request": request, "is_home": _is_home, "drawing": drawing, "session_elapsed": session_elapsed})
+    return templates.TemplateResponse("home.html", {"request": request, "presence": _presence, "drawing": drawing, "session_elapsed": session_elapsed, "last_location": _last_location})
 
 
 @app.post("/set-home")
 async def set_home():
-    global _is_home
-    _is_home = True
-    _save_home_status(True)
-    return JSONResponse({"home": True})
+    global _presence
+    _presence = "home"
+    _save_home_status("home")
+    return JSONResponse({"presence": "home"})
 
 
 @app.post("/set-away")
 async def set_away():
-    global _is_home
-    _is_home = False
-    _save_home_status(False)
-    return JSONResponse({"home": False})
+    global _presence
+    _presence = "away"
+    _save_home_status("away")
+    return JSONResponse({"presence": "away"})
 
 
 @app.get("/admin", response_class=HTMLResponse)
@@ -494,24 +498,35 @@ async def artwork_delete(request: Request):
 
 @app.post("/admin/set-home")
 async def admin_set_home(request: Request):
-    global _is_home
+    global _presence
     body = await request.json()
     if not _check_password(body):
         return JSONResponse({"error": "wrong password"}, status_code=401)
-    _is_home = True
-    _save_home_status(True)
-    return JSONResponse({"home": True})
+    _presence = "home"
+    _save_home_status("home")
+    return JSONResponse({"presence": "home"})
 
 
 @app.post("/admin/set-away")
 async def admin_set_away(request: Request):
-    global _is_home
+    global _presence
     body = await request.json()
     if not _check_password(body):
         return JSONResponse({"error": "wrong password"}, status_code=401)
-    _is_home = False
-    _save_home_status(False)
-    return JSONResponse({"home": False})
+    _presence = "away"
+    _save_home_status("away")
+    return JSONResponse({"presence": "away"})
+
+
+@app.post("/admin/set-coding")
+async def admin_set_coding(request: Request):
+    global _presence
+    body = await request.json()
+    if not _check_password(body):
+        return JSONResponse({"error": "wrong password"}, status_code=401)
+    _presence = "coding"
+    _save_home_status("coding")
+    return JSONResponse({"presence": "coding"})
 
 
 CAMERA_CONTROL_URL = "http://10.0.0.8:8080/controls"
