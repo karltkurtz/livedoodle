@@ -401,11 +401,6 @@ class ConnectionManager:
         mins, secs = divmod(duration, 60)
         time_str = f"{mins}m {secs}s" if mins else f"{secs}s"
         loc_str = f" from {location}" if location else ""
-        asyncio.create_task(_notify_ntfy(
-            f"{name}{loc_str} — {time_str}",
-            NTFY_TOPIC,
-            "New drawing submitted",
-        ))
 
         await self.broadcast_to_views({"type": "artwork_submitted"})
         if clear_history:
