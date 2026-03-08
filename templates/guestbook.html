@@ -205,6 +205,28 @@
       margin-top: 5px;
     }
 
+    .entry-footer {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 5px;
+    }
+
+    .like-btn {
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 16px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #333;
+      transition: color 0.15s;
+    }
+    .like-btn:hover { color: var(--purple); }
+    .like-btn.liked { color: var(--purple); }
+
     #empty {
       font-size: 10px;
       letter-spacing: 0.15em;
@@ -270,19 +292,53 @@
     return `${y}-${m}-${day}`;
   }
 
+  const liked = new Set(JSON.parse(localStorage.getItem("gb_liked") || "[]"));
+
+  function saveLiked() {
+    localStorage.setItem("gb_liked", JSON.stringify([...liked]));
+  }
+
   function renderEntries(entries) {
     const container = document.getElementById("entries");
     if (!entries.length) {
       container.innerHTML = '<div id="empty">No entries yet — be the first.</div>';
       return;
     }
-    container.innerHTML = [...entries].reverse().map(e => `
-      <div class="entry">
+    container.innerHTML = [...entries].reverse().map(e => {
+      const isLiked = liked.has(String(e.time));
+      const count = e.likes || 0;
+      const label = `♥ ${count > 0 ? count : ""}`.trim();
+      return `
+      <div class="entry" data-time="${e.time}">
         <div class="entry-name">${escHtml(e.name)}</div>
         <div class="entry-message">${escHtml(e.message)}</div>
-        <div class="entry-meta">${[e.location, formatDate(e.time)].filter(Boolean).join(" // ")}</div>
-      </div>
-    `).join("");
+        <div class="entry-footer">
+          <div class="entry-meta">${[e.location, formatDate(e.time)].filter(Boolean).join(" // ")}</div>
+          <button class="like-btn${isLiked ? " liked" : ""}" data-time="${e.time}">${label}</button>
+        </div>
+      </div>`;
+    }).join("");
+
+    container.querySelectorAll(".like-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const ts = parseFloat(btn.dataset.time);
+        if (liked.has(String(ts))) return;
+        liked.add(String(ts));
+        saveLiked();
+        btn.classList.add("liked");
+        try {
+          const r = await fetch("/guestbook/like", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ time: ts }),
+          });
+          if (r.ok) {
+            const { likes } = await r.json();
+            btn.textContent = `♥ ${likes}`;
+          }
+        } catch (_) {}
+      });
+    });
   }
 
   function escHtml(str) {

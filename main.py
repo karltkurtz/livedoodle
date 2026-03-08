@@ -1,10 +1,22 @@
 import asyncio
+import base64
 import datetime
 import ipaddress
 import json
 import os
 import time
 import httpx
+
+# Load .env for local dev (systemd uses EnvironmentFile instead)
+def _load_dotenv():
+    if os.path.exists(".env"):
+        with open(".env") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    os.environ.setdefault(k.strip(), v.strip())
+_load_dotenv()
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.templating import Jinja2Templates
@@ -316,6 +328,7 @@ async def startup():
     _visitors = _load_visitors()
     manager.chat_history = _load_chat()
     asyncio.create_task(_poll_camera())
+    asyncio.create_task(_moderation_loop())
 
 
 class ConnectionManager:
@@ -398,9 +411,7 @@ class ConnectionManager:
         if len(entries) > MAX_ARTWORK:
             entries = entries[-MAX_ARTWORK:]
         _save_artwork(entries)
-        mins, secs = divmod(duration, 60)
-        time_str = f"{mins}m {secs}s" if mins else f"{secs}s"
-        loc_str = f" from {location}" if location else ""
+        asyncio.create_task(_check_artwork_moderation(entry["time"], _latest_frame))
 
         await self.broadcast_to_views({"type": "artwork_submitted"})
         if clear_history:
@@ -417,6 +428,21 @@ class ConnectionManager:
                 dead.append(client)
         for client in dead:
             self.view_clients.remove(client)
+
+    async def broadcast_to_all(self, message: dict):
+        msg = json.dumps(message)
+        for clients in (self.draw_clients, self.display_clients, self.view_clients):
+            dead = []
+            for client in clients:
+                try:
+                    await client.send_text(msg)
+                except Exception:
+                    dead.append(client)
+            for client in dead:
+                try:
+                    clients.remove(client)
+                except ValueError:
+                    pass
 
     async def broadcast_to_displays(self, message: dict):
         dead = []
@@ -558,8 +584,9 @@ async def admin_set_coding(request: Request):
 
 
 CAMERA_CONTROL_URL = "http://10.0.0.8:8080/controls"
-NTFY_TOPIC = "livedoodle-drawing-submission"
 NTFY_GUESTBOOK_TOPIC = "livedoodle-guestbook-submission"
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+MODERATION_LOG_FILE = "moderation_log.json"
 
 
 async def _notify_ntfy(message: str, topic: str, title: str):
@@ -572,6 +599,88 @@ async def _notify_ntfy(message: str, topic: str, title: str):
             )
     except Exception:
         pass
+
+
+async def _moderate_frame(frame: bytes) -> tuple[bool, str]:
+    b64 = base64.b64encode(frame).decode()
+    prompt = (
+        "You are a content moderator for a public drawing app. "
+        "Look at this image and determine if it contains nudity, hate symbols, "
+        "racial slurs, graphic violence, or racist imagery. "
+        "Only flag clear and obvious violations — ignore ambiguous sketches. "
+        'Respond with JSON only, no other text: {"flagged": true/false, "reason": "brief reason if flagged, else empty string"}'
+    )
+    payload = {
+        "model": "llama-3.2-11b-vision-preview",
+        "messages": [{"role": "user", "content": [
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
+            {"type": "text", "text": prompt},
+        ]}],
+        "max_tokens": 100,
+        "temperature": 0,
+    }
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            json=payload,
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
+        )
+        r.raise_for_status()
+        content = r.json()["choices"][0]["message"]["content"]
+        result = json.loads(content)
+        return bool(result.get("flagged")), str(result.get("reason", ""))
+
+
+def _log_moderation(ip: str, reason: str, session_duration: int):
+    entry = {"ip": ip, "reason": reason, "timestamp": time.time(), "session_duration": session_duration}
+    log = []
+    if os.path.exists(MODERATION_LOG_FILE):
+        try:
+            with open(MODERATION_LOG_FILE) as f:
+                log = json.load(f)
+        except Exception:
+            pass
+    log.append(entry)
+    with open(MODERATION_LOG_FILE, "w") as f:
+        json.dump(log, f)
+
+
+async def _check_artwork_moderation(entry_time: float, frame: bytes):
+    if not GROQ_API_KEY or not frame:
+        return
+    try:
+        flagged, reason = await _moderate_frame(frame)
+        if flagged:
+            entries = _load_artwork()
+            new_entries = [e for e in entries if e.get("time") != entry_time]
+            if len(new_entries) < len(entries):
+                _save_artwork(new_entries)
+                print(f"[moderation] Deleted artwork {entry_time}: {reason}")
+    except Exception as e:
+        print(f"[moderation] Post-submit check error: {e}")
+
+
+async def _moderation_loop():
+    while True:
+        await asyncio.sleep(60)
+        if not manager.draw_clients or _latest_frame is None or not GROQ_API_KEY:
+            continue
+        try:
+            flagged, reason = await _moderate_frame(_latest_frame)
+            if flagged:
+                session_dur = int(time.time() - manager.session_start) if manager.session_start else 0
+                ip = manager._client_ips.get(id(manager.draw_clients[0]), "") if manager.draw_clients else ""
+                _log_moderation(ip, reason, session_dur)
+                manager.history.clear()
+                await manager.broadcast_to_displays({"type": "clear"})
+                await manager.broadcast_to_all({"type": "whoops", "reason": reason})
+                for ws in list(manager.draw_clients):
+                    try:
+                        await ws.close()
+                    except Exception:
+                        pass
+        except Exception as e:
+            print(f"[moderation] Loop error: {e}")
 
 
 @app.post("/admin/camera-control")
@@ -707,7 +816,7 @@ async def guestbook_sign(request: Request):
         return JSONResponse({"error": "message required"}, status_code=400)
     ip = _get_request_ip(request)
     location = await _lookup_geo(ip)
-    entry = {"name": name, "message": message, "location": location, "time": time.time()}
+    entry = {"name": name, "message": message, "location": location, "time": time.time(), "likes": 0}
     entries = _load_guestbook()
     entries.append(entry)
     if len(entries) > MAX_GUESTBOOK:
@@ -720,6 +829,21 @@ async def guestbook_sign(request: Request):
         "New guestbook entry",
     ))
     return JSONResponse({"ok": True})
+
+
+@app.post("/guestbook/like")
+async def guestbook_like(request: Request):
+    body = await request.json()
+    ts = body.get("time")
+    if ts is None:
+        return JSONResponse({"error": "time required"}, status_code=400)
+    entries = _load_guestbook()
+    for e in entries:
+        if e.get("time") == ts:
+            e["likes"] = e.get("likes", 0) + 1
+            _save_guestbook(entries)
+            return JSONResponse({"ok": True, "likes": e["likes"]})
+    return JSONResponse({"error": "not found"}, status_code=404)
 
 
 @app.get("/activity")

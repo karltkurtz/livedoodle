@@ -96,6 +96,67 @@
       text-transform: uppercase;
     }
 
+    /* ── Whoops overlay ── */
+    #whoops-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: #0a0a0a;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 24px;
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    #whoops-overlay.active { display: flex; }
+
+    #whoops-overlay::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.18) 3px,
+        rgba(0,0,0,0.18) 4px
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    #whoops-title {
+      font-size: clamp(36px, 8vw, 72px);
+      letter-spacing: 0.25em;
+      color: #ff4a2a;
+      text-shadow: 0 0 20px rgba(255,74,42,0.6), 0 0 40px rgba(255,74,42,0.3);
+      text-transform: uppercase;
+      position: relative;
+      z-index: 2;
+    }
+
+    #whoops-reason {
+      font-size: clamp(10px, 1.8vw, 14px);
+      letter-spacing: 0.2em;
+      color: #555;
+      text-transform: uppercase;
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      max-width: 60vw;
+    }
+
+    #whoops-sub {
+      font-size: clamp(10px, 1.5vw, 13px);
+      letter-spacing: 0.3em;
+      color: #333;
+      text-transform: uppercase;
+      position: relative;
+      z-index: 2;
+    }
+
     #reaction-overlay {
       position: fixed;
       inset: 0;
@@ -128,6 +189,13 @@
 <body>
 <canvas id="canvas"></canvas>
 <div id="reaction-overlay"></div>
+
+<!-- Whoops overlay -->
+<div id="whoops-overlay">
+  <div id="whoops-title">// WHOOPS //</div>
+  <div id="whoops-reason"></div>
+  <div id="whoops-sub">CONTENT REMOVED</div>
+</div>
 
 <!-- Screensaver overlay -->
 <div id="screensaver">
@@ -297,6 +365,11 @@
       spawnReaction(msg.emoji);
     } else if (msg.type === "reload") {
       location.reload();
+    } else if (msg.type === "whoops") {
+      const overlay = document.getElementById("whoops-overlay");
+      document.getElementById("whoops-reason").textContent = msg.reason || "";
+      overlay.classList.add("active");
+      setTimeout(() => overlay.classList.remove("active"), 5000);
     }
   }
 
