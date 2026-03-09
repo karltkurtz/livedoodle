@@ -708,6 +708,8 @@ async def _check_artwork_moderation(entry: dict, websocket):
                 print(f"[moderation] Deleted artwork {entry_time}: {reason}")
             ip = manager._client_ips.get(id(websocket), "")
             _log_moderation(ip, reason, 0)
+            manager.history.clear()
+            await manager.broadcast_to_displays({"type": "clear"})
             try:
                 await websocket.send_json({"type": "whoops", "reason": reason})
             except Exception:
