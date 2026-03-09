@@ -1095,11 +1095,6 @@
       undoStack.push(stampMsg);
       updateUndoBtn();
       send(stampMsg);
-      // Deactivate fill mode after use
-      isFilling = false;
-      fillBtn.classList.remove("active");
-      toolbar.classList.remove("fill-mode");
-      canvas.style.cursor = "crosshair";
       return;
     }
     drawing = true;
