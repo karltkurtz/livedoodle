@@ -394,30 +394,58 @@
     }
 
     /* Moderation log */
-    .modlog-entry {
-      border-left: 2px solid var(--coral);
-      padding: 8px 10px;
-      margin-bottom: 6px;
+    #modlog-search {
+      width: 100%;
       background: #0d0d0d;
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
+      border: 1px solid #1a1a1a;
+      color: #888;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      padding: 8px 10px;
+      outline: none;
+      margin-bottom: 10px;
+      transition: border-color 0.15s;
     }
-    .modlog-time {
-      font-size: 8px;
-      letter-spacing: 0.12em;
-      color: #444;
-      text-transform: uppercase;
-    }
-    .modlog-ip {
+    #modlog-search:focus { border-color: var(--teal); }
+    #modlog-search::placeholder { color: #2a2a2a; }
+
+    #modlog-wrap { overflow-x: auto; }
+
+    #modlog-table {
+      width: 100%;
+      border-collapse: collapse;
       font-size: 9px;
-      letter-spacing: 0.1em;
-      color: #666;
     }
-    .modlog-reason {
-      font-size: 10px;
-      color: var(--coral);
-      letter-spacing: 0.05em;
+    #modlog-table th {
+      text-align: left;
+      padding: 6px 8px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--amber);
+      opacity: 0.5;
+      border-bottom: 1px solid #1a1a1a;
+      cursor: pointer;
+      white-space: nowrap;
+      user-select: none;
+    }
+    #modlog-table th:hover { opacity: 0.9; }
+    #modlog-table th.sort-active { opacity: 1; }
+    #modlog-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #111;
+      color: #555;
+      vertical-align: top;
+    }
+    #modlog-table tr:hover td { color: #777; }
+    .modlog-reason-cell { color: var(--coral); }
+    .modlog-time-cell { white-space: nowrap; color: #444; font-size: 8px; }
+    .modlog-name-cell { color: #666; }
+    #modlog-count {
+      font-size: 8px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #333;
+      margin-top: 8px;
     }
     #modlog-empty {
       font-size: 9px;
@@ -515,7 +543,9 @@
         <div class="section-label" style="margin-bottom:0;">// Moderation Log</div>
         <button id="reload-modlog-btn" class="clear-btn" style="border-color:var(--teal);color:var(--teal);font-size:8px;">REFRESH</button>
       </div>
+      <input id="modlog-search" type="text" placeholder="SEARCH NAME / IP / LOCATION / REASON..." autocomplete="off" />
       <div id="modlog-list"></div>
+      <div id="modlog-count"></div>
       <div id="modlog-status" class="data-status"></div>
     </div>
 
@@ -763,38 +793,96 @@
   }
 
   // Moderation log
+  let modlogData = [];
+  let modlogSort = { col: 'timestamp', dir: -1 };
+
   async function loadModerationLog() {
-    const list = document.getElementById('modlog-list');
     const statusEl = document.getElementById('modlog-status');
     statusEl.textContent = 'Loading...';
-    list.innerHTML = '';
     try {
       const r = await fetch('/admin/moderation-log?password=' + encodeURIComponent(pw));
       if (!r.ok) { statusEl.textContent = 'Error.'; return; }
-      const entries = await r.json();
+      modlogData = await r.json();
       statusEl.textContent = '';
-      if (!entries.length) {
-        list.innerHTML = '<div id="modlog-empty">No flags yet.</div>';
-        return;
-      }
-      for (const e of entries) {
-        const d = new Date(e.timestamp * 1000);
-        const timeStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-          + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        const el = document.createElement('div');
-        el.className = 'modlog-entry';
-        el.innerHTML =
-          '<div class="modlog-time">' + timeStr + '</div>' +
-          '<div class="modlog-ip">' + (e.ip || '—') + '</div>' +
-          '<div class="modlog-reason">' + (e.reason || '(no reason)') + '</div>';
-        list.appendChild(el);
-      }
+      renderModlogTable();
     } catch (_) {
       statusEl.textContent = 'Network error.';
     }
   }
 
+  function renderModlogTable() {
+    const query = (document.getElementById('modlog-search').value || '').toLowerCase();
+    const filtered = modlogData.filter(e => {
+      if (!query) return true;
+      return (e.name || '').toLowerCase().includes(query) ||
+             (e.ip || '').toLowerCase().includes(query) ||
+             (e.location || '').toLowerCase().includes(query) ||
+             (e.reason || '').toLowerCase().includes(query);
+    });
+
+    const col = modlogSort.col;
+    const dir = modlogSort.dir;
+    filtered.sort((a, b) => {
+      const av = a[col] ?? '';
+      const bv = b[col] ?? '';
+      if (av < bv) return -dir;
+      if (av > bv) return dir;
+      return 0;
+    });
+
+    const list = document.getElementById('modlog-list');
+    const countEl = document.getElementById('modlog-count');
+
+    if (!filtered.length) {
+      list.innerHTML = '<div id="modlog-empty">' + (modlogData.length ? 'No matches.' : 'No flags yet.') + '</div>';
+      countEl.textContent = '';
+      return;
+    }
+
+    const COLS = [
+      { key: 'timestamp', label: 'Time' },
+      { key: 'name',      label: 'Name' },
+      { key: 'location',  label: 'Location' },
+      { key: 'ip',        label: 'IP' },
+      { key: 'reason',    label: 'Reason' },
+    ];
+
+    let html = '<div id="modlog-wrap"><table id="modlog-table"><thead><tr>';
+    for (const c of COLS) {
+      const active = modlogSort.col === c.key;
+      const arrow = active ? (modlogSort.dir === 1 ? ' ▲' : ' ▼') : '';
+      html += `<th data-col="${c.key}"${active ? ' class="sort-active"' : ''}>${c.label}${arrow}</th>`;
+    }
+    html += '</tr></thead><tbody>';
+    for (const e of filtered) {
+      const d = new Date(e.timestamp * 1000);
+      const timeStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
+        + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      html += '<tr>';
+      html += `<td class="modlog-time-cell">${timeStr}</td>`;
+      html += `<td class="modlog-name-cell">${e.name || '—'}</td>`;
+      html += `<td>${e.location || '—'}</td>`;
+      html += `<td>${e.ip || '—'}</td>`;
+      html += `<td class="modlog-reason-cell">${e.reason || '—'}</td>`;
+      html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    list.innerHTML = html;
+
+    countEl.textContent = filtered.length + ' of ' + modlogData.length + ' FLAG' + (modlogData.length !== 1 ? 'S' : '');
+
+    list.querySelectorAll('th[data-col]').forEach(th => {
+      th.addEventListener('click', () => {
+        const c = th.dataset.col;
+        if (modlogSort.col === c) { modlogSort.dir *= -1; }
+        else { modlogSort.col = c; modlogSort.dir = c === 'timestamp' ? -1 : 1; }
+        renderModlogTable();
+      });
+    });
+  }
+
   document.getElementById('reload-modlog-btn').addEventListener('click', loadModerationLog);
+  document.getElementById('modlog-search').addEventListener('input', renderModlogTable);
 
 </script>
 

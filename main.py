@@ -5,6 +5,7 @@ import io
 import ipaddress
 import json
 import os
+import sqlite3
 import time
 import httpx
 from PIL import Image, ImageDraw
@@ -329,6 +330,7 @@ async def startup():
     _presence = _load_home_status()
     _visitors = _load_visitors()
     manager.chat_history = _load_chat()
+    _init_moderation_db()
     asyncio.create_task(_poll_camera())
 
 
@@ -588,6 +590,41 @@ CAMERA_CONTROL_URL = "http://10.0.0.8:8080/controls"
 NTFY_GUESTBOOK_TOPIC = "livedoodle-guestbook-submission"
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 MODERATION_LOG_FILE = "moderation_log.json"
+MODERATION_DB_FILE = "moderation.db"
+
+
+def _init_moderation_db():
+    con = sqlite3.connect(MODERATION_DB_FILE)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS moderation_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp REAL,
+            ip TEXT,
+            name TEXT,
+            location TEXT,
+            reason TEXT,
+            session_duration INTEGER
+        )
+    """)
+    con.commit()
+    # Migrate from JSON if it exists and DB is empty
+    if os.path.exists(MODERATION_LOG_FILE):
+        try:
+            count = con.execute("SELECT COUNT(*) FROM moderation_log").fetchone()[0]
+            if count == 0:
+                with open(MODERATION_LOG_FILE) as f:
+                    entries = json.load(f)
+                for e in entries:
+                    con.execute(
+                        "INSERT INTO moderation_log (timestamp, ip, name, location, reason, session_duration) VALUES (?, ?, ?, ?, ?, ?)",
+                        (e.get("timestamp", 0), e.get("ip", ""), e.get("name", ""), e.get("location", ""), e.get("reason", ""), e.get("session_duration", 0))
+                    )
+                con.commit()
+                if entries:
+                    print(f"[moderation] Migrated {len(entries)} entries from JSON to SQLite")
+        except Exception as ex:
+            print(f"[moderation] Migration error: {ex}")
+    con.close()
 
 
 async def _notify_ntfy(message: str, topic: str, title: str):
@@ -646,18 +683,14 @@ async def _moderate_frame(frame: bytes) -> tuple[bool, str]:
     return False, ""
 
 
-def _log_moderation(ip: str, reason: str, session_duration: int):
-    entry = {"ip": ip, "reason": reason, "timestamp": time.time(), "session_duration": session_duration}
-    log = []
-    if os.path.exists(MODERATION_LOG_FILE):
-        try:
-            with open(MODERATION_LOG_FILE) as f:
-                log = json.load(f)
-        except Exception:
-            pass
-    log.append(entry)
-    with open(MODERATION_LOG_FILE, "w") as f:
-        json.dump(log, f)
+def _log_moderation(ip: str, reason: str, session_duration: int, name: str = "", location: str = ""):
+    con = sqlite3.connect(MODERATION_DB_FILE)
+    con.execute(
+        "INSERT INTO moderation_log (timestamp, ip, name, location, reason, session_duration) VALUES (?, ?, ?, ?, ?, ?)",
+        (time.time(), ip, name, location, reason, session_duration)
+    )
+    con.commit()
+    con.close()
 
 
 def _render_entry(entry: dict, width: int = 800, height: int = 480) -> bytes:
@@ -707,7 +740,7 @@ async def _check_artwork_moderation(entry: dict, websocket):
                 _save_artwork(new_entries)
                 print(f"[moderation] Deleted artwork {entry_time}: {reason}")
             ip = manager._client_ips.get(id(websocket), "")
-            _log_moderation(ip, reason, 0)
+            _log_moderation(ip, reason, 0, name=entry.get("name", ""), location=entry.get("location", ""))
             asyncio.create_task(_notify_ntfy(
                 f"Flagged: {reason} — {entry.get('name', 'Anonymous')} from {entry.get('location', '?')}",
                 "livedoodle-moderation",
@@ -756,14 +789,16 @@ async def admin_camera_control(request: Request):
 async def admin_moderation_log(password: str = ""):
     if password != ADMIN_PASSWORD:
         return JSONResponse({"error": "wrong password"}, status_code=401)
-    if not os.path.exists(MODERATION_LOG_FILE):
-        return JSONResponse([])
     try:
-        with open(MODERATION_LOG_FILE) as f:
-            log = json.load(f)
-    except Exception:
-        log = []
-    return JSONResponse(list(reversed(log)))
+        con = sqlite3.connect(MODERATION_DB_FILE)
+        con.row_factory = sqlite3.Row
+        rows = con.execute(
+            "SELECT id, timestamp, ip, name, location, reason, session_duration FROM moderation_log ORDER BY timestamp DESC"
+        ).fetchall()
+        con.close()
+        return JSONResponse([dict(r) for r in rows])
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.post("/admin/reload-display")
