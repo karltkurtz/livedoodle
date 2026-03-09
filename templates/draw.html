@@ -521,6 +521,30 @@
       box-shadow: 0 0 12px rgba(57,255,20,0.55);
     }
 
+    #toolbar.fill-mode button:not(#fill-btn) {
+      border-color: #333 !important;
+      color: #444 !important;
+      box-shadow: none !important;
+      pointer-events: none !important;
+    }
+
+    #toolbar.eraser-mode button:not(#eraser-btn) {
+      border-color: #333 !important;
+      color: #444 !important;
+      box-shadow: none !important;
+      pointer-events: none !important;
+    }
+
+    #toolbar.fill-mode #brush-size,
+    #toolbar.eraser-mode #brush-size {
+      opacity: 0.2;
+    }
+
+    #toolbar.fill-mode #size-label,
+    #toolbar.eraser-mode #size-label {
+      opacity: 0.2;
+    }
+
     #undo-btn {
       border-color: var(--amber);
       color: var(--amber);
@@ -904,12 +928,13 @@
     el.addEventListener("click", () => {
       currentColor = color;
       isErasing = false;
-      isFilling = false;
       eraserBtn.classList.remove("active");
-      fillBtn.classList.remove("active");
-      canvas.style.cursor = "crosshair";
+      toolbar.classList.remove("eraser-mode");
       document.querySelectorAll(".swatch").forEach(s => s.classList.remove("active"));
       el.classList.add("active");
+      if (!isFilling) {
+        canvas.style.cursor = "crosshair";
+      }
     });
     swatchesEl.appendChild(el);
   });
@@ -943,6 +968,8 @@
     isFilling = false;
     eraserBtn.classList.toggle("active", isErasing);
     fillBtn.classList.remove("active");
+    toolbar.classList.remove("fill-mode");
+    toolbar.classList.toggle("eraser-mode", isErasing);
     canvas.style.cursor = isErasing ? ERASER_CURSOR : "crosshair";
     if (isErasing) {
       document.querySelectorAll(".swatch").forEach(s => s.classList.remove("active"));
@@ -955,7 +982,9 @@
     isFilling = !isFilling;
     isErasing = false;
     eraserBtn.classList.remove("active");
+    toolbar.classList.remove("eraser-mode");
     fillBtn.classList.toggle("active", isFilling);
+    toolbar.classList.toggle("fill-mode", isFilling);
     canvas.style.cursor = isFilling ? FILL_CURSOR : "crosshair";
   });
 
@@ -1066,6 +1095,11 @@
       undoStack.push(stampMsg);
       updateUndoBtn();
       send(stampMsg);
+      // Deactivate fill mode after use
+      isFilling = false;
+      fillBtn.classList.remove("active");
+      toolbar.classList.remove("fill-mode");
+      canvas.style.cursor = "crosshair";
       return;
     }
     drawing = true;
