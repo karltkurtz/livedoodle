@@ -1,11 +1,13 @@
 import asyncio
 import base64
 import datetime
+import io
 import ipaddress
 import json
 import os
 import time
 import httpx
+from PIL import Image, ImageDraw
 
 # Load .env for local dev (systemd uses EnvironmentFile instead)
 def _load_dotenv():
@@ -328,7 +330,6 @@ async def startup():
     _visitors = _load_visitors()
     manager.chat_history = _load_chat()
     asyncio.create_task(_poll_camera())
-    asyncio.create_task(_moderation_loop())
 
 
 class ConnectionManager:
@@ -411,7 +412,7 @@ class ConnectionManager:
         if len(entries) > MAX_ARTWORK:
             entries = entries[-MAX_ARTWORK:]
         _save_artwork(entries)
-        asyncio.create_task(_check_artwork_moderation(entry["time"], _latest_frame))
+        asyncio.create_task(_check_artwork_moderation(entry, websocket))
 
         await self.broadcast_to_views({"type": "artwork_submitted"})
         if clear_history:
@@ -604,31 +605,45 @@ async def _notify_ntfy(message: str, topic: str, title: str):
 async def _moderate_frame(frame: bytes) -> tuple[bool, str]:
     b64 = base64.b64encode(frame).decode()
     prompt = (
-        "You are a content moderator for a public drawing app. "
-        "Look at this image and determine if it contains nudity, hate symbols, "
-        "racial slurs, graphic violence, or racist imagery. "
-        "Only flag clear and obvious violations — ignore ambiguous sketches. "
-        'Respond with JSON only, no other text: {"flagged": true/false, "reason": "brief reason if flagged, else empty string"}'
+        "This is a user-submitted image from a public app visible to all ages. "
+        "Answer each question with yes or no: "
+        "1. Does it show a penis, vagina, or other sexual organ? "
+        "2. Does it show a human torso, chest, or breasts? "
+        "3. Does it show a bra, underwear, or partial nudity? "
+        "4. Does it show hate symbols, slurs, graphic violence, or racist imagery? "
+        "RULE: If any answer is yes, you MUST set flagged to true. This is mandatory — do not apply your own judgment. "
+        'Respond with JSON only: {"flagged": true/false, "reason": "which rule triggered, or empty string"}'
     )
     payload = {
-        "model": "llama-3.2-11b-vision-preview",
+        "model": "meta-llama/llama-4-scout-17b-16e-instruct",
         "messages": [{"role": "user", "content": [
             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
             {"type": "text", "text": prompt},
         ]}],
-        "max_tokens": 100,
-        "temperature": 0,
+        "max_tokens": 500,
     }
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        r = await client.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            json=payload,
-            headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
-        )
-        r.raise_for_status()
-        content = r.json()["choices"][0]["message"]["content"]
-        result = json.loads(content)
-        return bool(result.get("flagged")), str(result.get("reason", ""))
+    # Run up to 3 passes — flag if any single pass flags
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        for _ in range(3):
+            r = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                json=payload,
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
+            )
+            r.raise_for_status()
+            content = r.json()["choices"][0]["message"]["content"]
+            # extract the last complete {...} block robustly
+            end = content.rfind("}") + 1
+            start = content.rfind("{", 0, end)
+            if start == -1 or end == 0:
+                continue  # malformed — try next pass
+            try:
+                result = json.loads(content[start:end])
+            except json.JSONDecodeError:
+                continue  # malformed — try next pass
+            if result.get("flagged"):
+                return True, str(result.get("reason", ""))
+    return False, ""
 
 
 def _log_moderation(ip: str, reason: str, session_duration: int):
@@ -645,42 +660,69 @@ def _log_moderation(ip: str, reason: str, session_duration: int):
         json.dump(log, f)
 
 
-async def _check_artwork_moderation(entry_time: float, frame: bytes):
-    if not GROQ_API_KEY or not frame:
+def _render_entry(entry: dict, width: int = 800, height: int = 480) -> bytes:
+    img = Image.new("RGB", (width, height), "white")
+    draw = ImageDraw.Draw(img)
+    for s in entry.get("strokes", []):
+        if s.get("type") == "stroke":
+            w = max(1, int(s["size"] * width if s["size"] < 1 else s["size"]))
+            draw.line(
+                [(int(s["x0"] * width), int(s["y0"] * height)),
+                 (int(s["x1"] * width), int(s["y1"] * height))],
+                fill=s.get("color", "#000000"), width=w
+            )
+        elif s.get("type") == "stamp" and s.get("data"):
+            # decode stamp dataURL and composite onto canvas
+            try:
+                header, b64data = s["data"].split(",", 1)
+                stamp_img = Image.open(io.BytesIO(base64.b64decode(b64data))).convert("RGBA")
+                x = int(s.get("x", 0.5) * width)
+                y = int(s.get("y", 0.5) * height)
+                sw = int(s.get("w", 0.2) * width)
+                sh = int(s.get("h", sw) * height)
+                stamp_img = stamp_img.resize((sw, sh), Image.LANCZOS)
+                img.paste(stamp_img, (x - sw // 2, y - sh // 2), stamp_img)
+            except Exception:
+                pass
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=85)
+    return buf.getvalue()
+
+
+async def _check_artwork_moderation(entry: dict, websocket):
+    if not GROQ_API_KEY:
+        try:
+            await websocket.send_json({"type": "approved"})
+        except Exception:
+            pass
         return
+    frame = _render_entry(entry)
     try:
         flagged, reason = await _moderate_frame(frame)
         if flagged:
             entries = _load_artwork()
+            entry_time = entry.get("time")
             new_entries = [e for e in entries if e.get("time") != entry_time]
             if len(new_entries) < len(entries):
                 _save_artwork(new_entries)
                 print(f"[moderation] Deleted artwork {entry_time}: {reason}")
+            ip = manager._client_ips.get(id(websocket), "")
+            _log_moderation(ip, reason, 0)
+            try:
+                await websocket.send_json({"type": "whoops", "reason": reason})
+            except Exception:
+                pass
+        else:
+            try:
+                await websocket.send_json({"type": "approved"})
+            except Exception:
+                pass
     except Exception as e:
         print(f"[moderation] Post-submit check error: {e}")
-
-
-async def _moderation_loop():
-    while True:
-        await asyncio.sleep(60)
-        if not manager.draw_clients or _latest_frame is None or not GROQ_API_KEY:
-            continue
         try:
-            flagged, reason = await _moderate_frame(_latest_frame)
-            if flagged:
-                session_dur = int(time.time() - manager.session_start) if manager.session_start else 0
-                ip = manager._client_ips.get(id(manager.draw_clients[0]), "") if manager.draw_clients else ""
-                _log_moderation(ip, reason, session_dur)
-                manager.history.clear()
-                await manager.broadcast_to_displays({"type": "clear"})
-                await manager.broadcast_to_all({"type": "whoops", "reason": reason})
-                for ws in list(manager.draw_clients):
-                    try:
-                        await ws.close()
-                    except Exception:
-                        pass
-        except Exception as e:
-            print(f"[moderation] Loop error: {e}")
+            await websocket.send_json({"type": "approved"})
+        except Exception:
+            pass
 
 
 @app.post("/admin/camera-control")
