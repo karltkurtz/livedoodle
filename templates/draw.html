@@ -1137,9 +1137,15 @@
     if (msg.type === "whoops") {
       ws.onclose = null;
       ws.close();
-      const reason = msg.reason ? `<div style="font-size:11px;color:#555;letter-spacing:0.15em;margin-top:8px;max-width:280px;text-align:center;">${msg.reason.toUpperCase()}</div>` : "";
-      document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;flex-direction:column;height:100vh;background:#0a0a0a;font-family:'Share Tech Mono',monospace;text-align:center;padding:20px;gap:16px;"><div style="font-size:22px;letter-spacing:0.25em;color:#ff4a2a;text-shadow:0 0 16px rgba(255,74,42,0.5);">// WHOOPS //</div>${reason}<div style="font-size:11px;color:#555;letter-spacing:0.2em;margin-top:4px;">YOUR DRAWING WAS REMOVED.</div><div style="font-size:10px;color:#333;letter-spacing:0.15em;">REDIRECTING IN 4 SECONDS...</div></div>`;
-      setTimeout(() => { location.href = "/"; }, 4000);
+      document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;flex-direction:column;height:100vh;background:#0a0a0a;font-family:'Share Tech Mono',monospace;text-align:center;padding:20px;gap:14px;"><div style="font-size:22px;letter-spacing:0.25em;color:#ff4a2a;text-shadow:0 0 16px rgba(255,74,42,0.5);">// WHOOPS //</div><div style="font-size:11px;color:#555;letter-spacing:0.2em;line-height:2;">YOUR IMAGE VIOLATES COMMUNITY GUIDELINES.<br>IT IS NOW BEING REMOVED.</div><div id="whoops-countdown" style="font-size:10px;color:#333;letter-spacing:0.15em;">REDIRECTING IN 4 SECONDS...</div></div>`;
+      let secs = 4;
+      const cd = document.getElementById("whoops-countdown");
+      const iv = setInterval(() => {
+        secs--;
+        if (secs <= 0) { clearInterval(iv); location.href = "/"; }
+        else cd.textContent = `REDIRECTING IN ${secs} SECOND${secs === 1 ? "" : "S"}...`;
+      }, 1000);
+      setTimeout(() => { clearInterval(iv); location.href = "/"; }, 4500);
     } else if (msg.type === "approved") {
       location.href = "/";
     } else if (msg.type === "busy") {
@@ -1207,7 +1213,7 @@
     send({ type: "finish", name, duration });
     signOverlay.classList.remove("visible");
     // hold the page — wait for approved or whoops from server
-    document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;flex-direction:column;height:100vh;background:#0a0a0a;font-family:'Share Tech Mono',monospace;text-align:center;padding:20px;gap:16px;"><div style="font-size:14px;letter-spacing:0.3em;color:#ffb300;">SUBMITTING...</div><div style="font-size:10px;color:#333;letter-spacing:0.2em;">PLEASE WAIT</div></div>`;
+    document.body.innerHTML = `<style>@keyframes _pulse{0%,100%{opacity:1;text-shadow:0 0 8px rgba(255,179,0,0.6)}50%{opacity:0.4;text-shadow:none}}@keyframes _dots{0%{content:''}33%{content:'.'}66%{content:'..'}100%{content:'...'}} ._dots::after{content:'';animation:_dots 1.2s steps(1,end) infinite} ._label{animation:_pulse 1.6s ease-in-out infinite}</style><div style="display:flex;align-items:center;justify-content:center;flex-direction:column;height:100vh;background:#0a0a0a;font-family:'Share Tech Mono',monospace;text-align:center;padding:20px;gap:16px;"><div class="_label" style="font-size:14px;letter-spacing:0.3em;color:#ffb300;">SUBMITTING<span class="_dots"></span></div><div style="font-size:10px;color:#333;letter-spacing:0.2em;">PLEASE WAIT</div></div>`;
     // safety fallback — redirect after 30s if no response
     setTimeout(() => { location.href = "/"; }, 30000);
   }

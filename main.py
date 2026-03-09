@@ -708,6 +708,11 @@ async def _check_artwork_moderation(entry: dict, websocket):
                 print(f"[moderation] Deleted artwork {entry_time}: {reason}")
             ip = manager._client_ips.get(id(websocket), "")
             _log_moderation(ip, reason, 0)
+            asyncio.create_task(_notify_ntfy(
+                f"Flagged: {reason} — {entry.get('name', 'Anonymous')} from {entry.get('location', '?')}",
+                "livedoodle-moderation",
+                "LiveDoodle: Content Flagged"
+            ))
             manager.history.clear()
             await manager.broadcast_to_displays({"type": "clear"})
             try:
