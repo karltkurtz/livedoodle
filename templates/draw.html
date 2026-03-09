@@ -250,6 +250,23 @@
 
     #quotes-toggle-btn.open { box-shadow: 0 0 14px rgba(255,74,42,0.6); }
 
+    #games-toggle-btn {
+      border-color: var(--purple);
+      color: var(--purple);
+      box-shadow: 0 0 8px rgba(191,95,255,0.3);
+      width: 72px;
+    }
+
+    #games-toggle-btn.open { box-shadow: 0 0 14px rgba(191,95,255,0.6); }
+
+    .game-btn {
+      border-color: var(--teal);
+      color: var(--teal);
+      box-shadow: 0 0 6px rgba(0,229,255,0.25);
+      width: 120px;
+    }
+    .game-btn:hover { box-shadow: 0 0 14px rgba(0,229,255,0.6); }
+
     .quote-btn {
       font-size: 9px;
       padding: 7px 10px;
@@ -707,6 +724,7 @@
       <button id="brush-toggle-btn">BRUSH</button>
       <button id="emoji-toggle-btn">EMOJI</button>
       <button id="quotes-toggle-btn">QUOTES</button>
+      <button id="games-toggle-btn">GAMES</button>
     </div>
     <div id="brush-picker">
       <button class="brush-mode-btn active" data-mode="solid">SOLID</button>
@@ -837,6 +855,16 @@
       <button class="quote-btn">YOU GOT THIS</button>
       <button class="quote-btn">GOOD VIBES ONLY</button>
       <button class="quote-btn">MAKE IT HAPPEN</button>
+    </div>
+  </div>
+</div>
+
+<!-- Games picker overlay -->
+<div class="picker-overlay" id="games-picker-overlay">
+  <div class="picker-panel" style="border:1px solid var(--purple);box-shadow:0 0 18px rgba(191,95,255,0.3);">
+    <div class="picker-panel-title" style="color:var(--purple);">GAMES</div>
+    <div class="picker-panel-items" style="flex-direction:column;gap:4px;">
+      <button class="game-btn" id="maze-btn">MAZE</button>
     </div>
   </div>
 </div>
@@ -1426,6 +1454,8 @@
   const emojiPickerOverlay  = document.getElementById("emoji-picker-overlay");
   const quotesToggleBtn     = document.getElementById("quotes-toggle-btn");
   const quotesPickerOverlay = document.getElementById("quotes-picker-overlay");
+  const gamesToggleBtn      = document.getElementById("games-toggle-btn");
+  const gamesPickerOverlay  = document.getElementById("games-picker-overlay");
 
   function closeAllPickers() {
     shapePickerOverlay.classList.remove("visible");
@@ -1436,6 +1466,8 @@
     emojiToggleBtn.classList.remove("open");
     quotesPickerOverlay.classList.remove("visible");
     quotesToggleBtn.classList.remove("open");
+    gamesPickerOverlay.classList.remove("visible");
+    gamesToggleBtn.classList.remove("open");
   }
 
   shapeToggleBtn.addEventListener("click", () => {
@@ -1471,6 +1503,16 @@
     const wasOpen = quotesPickerOverlay.classList.contains("visible");
     closeAllPickers();
     if (!wasOpen) { quotesPickerOverlay.classList.add("visible"); quotesToggleBtn.classList.add("open"); }
+  });
+
+  gamesToggleBtn.addEventListener("click", () => {
+    const wasOpen = gamesPickerOverlay.classList.contains("visible");
+    closeAllPickers();
+    if (!wasOpen) { gamesPickerOverlay.classList.add("visible"); gamesToggleBtn.classList.add("open"); }
+  });
+
+  gamesPickerOverlay.addEventListener("click", e => {
+    if (e.target === gamesPickerOverlay) closeAllPickers();
   });
 
   quotesPickerOverlay.addEventListener("click", e => {
