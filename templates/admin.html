@@ -392,6 +392,40 @@
       min-height: 12px;
       margin-top: 4px;
     }
+
+    /* Moderation log */
+    .modlog-entry {
+      border-left: 2px solid var(--coral);
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      background: #0d0d0d;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .modlog-time {
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      color: #444;
+      text-transform: uppercase;
+    }
+    .modlog-ip {
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      color: #666;
+    }
+    .modlog-reason {
+      font-size: 10px;
+      color: var(--coral);
+      letter-spacing: 0.05em;
+    }
+    #modlog-empty {
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #333;
+      padding: 8px 0;
+    }
   </style>
 </head>
 <body>
@@ -473,6 +507,18 @@
       </div>
     </div>
 
+    <div class="rule"></div>
+
+    <!-- Moderation Log -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="section-label" style="margin-bottom:0;">// Moderation Log</div>
+        <button id="reload-modlog-btn" class="clear-btn" style="border-color:var(--teal);color:var(--teal);font-size:8px;">REFRESH</button>
+      </div>
+      <div id="modlog-list"></div>
+      <div id="modlog-status" class="data-status"></div>
+    </div>
+
   </div>
 
 </div>
@@ -496,6 +542,7 @@
         startCamera();
         fetchPresence();
         buildCamControls();
+        loadModerationLog();
       } else {
         status.textContent = 'Wrong password.';
         pw = '';
@@ -714,6 +761,40 @@
     }
     setTimeout(() => statusEl.textContent = '', 2000);
   }
+
+  // Moderation log
+  async function loadModerationLog() {
+    const list = document.getElementById('modlog-list');
+    const statusEl = document.getElementById('modlog-status');
+    statusEl.textContent = 'Loading...';
+    list.innerHTML = '';
+    try {
+      const r = await fetch('/admin/moderation-log?password=' + encodeURIComponent(pw));
+      if (!r.ok) { statusEl.textContent = 'Error.'; return; }
+      const entries = await r.json();
+      statusEl.textContent = '';
+      if (!entries.length) {
+        list.innerHTML = '<div id="modlog-empty">No flags yet.</div>';
+        return;
+      }
+      for (const e of entries) {
+        const d = new Date(e.timestamp * 1000);
+        const timeStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        const el = document.createElement('div');
+        el.className = 'modlog-entry';
+        el.innerHTML =
+          '<div class="modlog-time">' + timeStr + '</div>' +
+          '<div class="modlog-ip">' + (e.ip || '—') + '</div>' +
+          '<div class="modlog-reason">' + (e.reason || '(no reason)') + '</div>';
+        list.appendChild(el);
+      }
+    } catch (_) {
+      statusEl.textContent = 'Network error.';
+    }
+  }
+
+  document.getElementById('reload-modlog-btn').addEventListener('click', loadModerationLog);
 
 </script>
 

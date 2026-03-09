@@ -366,38 +366,10 @@ Stamp flow:
 ## Planned / TODO
 
 ### START HERE NEXT TIME
-**LLM content moderation — branch `LLM-monitoring`. TOP PRIORITY.**
+**LLM moderation is live and working. Next two priorities:**
 
-Feature is fully designed but NOT YET IMPLEMENTED. Waiting on user to create Groq API key and set it up on Pi before coding begins.
-
-**User setup steps (must be done first):**
-1. Go to console.groq.com → API Keys → Create API Key → copy it
-2. SSH to Pi and run:
-   ```bash
-   echo "GROQ_API_KEY=your_key_here" > ~/livedoodle/.env
-   chmod 600 ~/livedoodle/.env
-   ```
-3. Tell Claude — then implementation begins
-
-**What gets built:**
-- `main.py`:
-  - `GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")` — loaded from env
-  - Background `_moderation_loop()` task: runs every 60s, skips if no active draw session, sends `_latest_frame` (already cached by camera poll loop) to Groq vision API as base64
-  - Model: `llama-3.2-11b-vision-preview` (free tier); prompt flags nudity, hate symbols/slurs, graphic violence, racist imagery — only clear obvious violations
-  - Response parsed as `{"flagged": bool, "reason": str}`
-  - On flagged: broadcast `{type:"clear"}` to displays, broadcast `{type:"whoops", reason:"..."}` to ALL clients (draw + display + view), gracefully disconnect draw WebSocket, log to `moderation_log.json`
-  - After saving artwork on `finish`: async moderation check on `_latest_frame`; if flagged, silently delete the entry from `artwork_history.json` — no message to anyone
-  - All Groq API calls via `httpx` (already a dependency), non-blocking; errors logged and swallowed — never crash the loop
-- `moderation_log.json`: `[{ip, reason, timestamp, session_duration}, ...]` — never exposed via any route
-- `display.html`: fullscreen coral whoops overlay on `{type:"whoops"}` message — retro arcade style, shows flagged reason, auto-clears after 5s, returns to normal canvas
-- `draw.html`: whoops screen on `{type:"whoops"}` message — concisely explains why flagged, redirects to `/` after 4s
-- `livedoodle.service`: add `EnvironmentFile=/home/karltkurtz/livedoodle/.env` to `[Service]` section
-- `.gitignore`: ensure `.env` is excluded
-
-**Merge order:**
-1. Merge `chat-feature` → `main` first
-2. Rebase or merge `LLM-monitoring` on top of that
-3. Deploy both together
+1. **Admin moderation log view** — read-only panel in `/admin` showing `moderation_log.json` entries (timestamp, reason, IP). No actions needed, just visibility.
+2. **Moderation confidence threshold** — after the main pass returns `flagged: true`, run a second prompt asking confidence 1–10; only hard-flag on 7+. Prevents false positives on ambiguous drawings.
 
 ---
 
@@ -411,6 +383,7 @@ Feature is fully designed but NOT YET IMPLEMENTED. Waiting on user to create Gro
 - Consider sending fill result as a full canvas snapshot (dataURL stamp) instead of re-computing flood fill on display
 
 ### Recently Completed
+- ~~LLM content moderation~~ — Groq vision API (`meta-llama/llama-4-scout-17b-16e-instruct`), 3-pass, PIL renderer, submission-time only (no polling loop), whoops screen + countdown, artboard clear on flag, ntfy push on flag, silent artwork delete, `moderation_log.json`
 - ~~Fix draw session race condition~~ — server sends `{type:"busy"}` and closes on duplicate draw connect; home.html renders button state server-side; draw.html shows busy screen if rejected
 - ~~Increase `MAX_ARTWORK` to 100~~ — done, drops oldest when full
 - ~~Heatmap continent/country outlines~~ — topojson-client + world-atlas from jsDelivr CDN
@@ -428,7 +401,6 @@ Feature is fully designed but NOT YET IMPLEMENTED. Waiting on user to create Gro
 - ~~Removed tagline~~ — "// real strokes · real screen · no signup" paragraph removed from home page
 
 ### Bugs / Edge Cases to Watch
-- **Fill on Pi display** — see START HERE above; infrastructure is complete but rendering broken on Pi LCD
 - **Toolbar layout fragility** — `margin-top: -60px` on `#tools-section` is a workaround for phantom `#stamp-controls` height (visibility:hidden but still in layout); if layout shifts unexpectedly, this is why
 - **DRAW! button location text** — location comes from ip-api.com at draw connect time; if lookup fails or IP is private, location is blank and button falls back to "SOMEONE IS DRAWING" gracefully
 - **Old unauthenticated endpoints** — `POST /set-home` and `POST /set-away` still exist without password protection; low risk but should be removed or gated
@@ -437,6 +409,7 @@ Feature is fully designed but NOT YET IMPLEMENTED. Waiting on user to create Gro
 - Replace Venmo placeholder in `donate.html` with real username
 - Remove or protect old unauthenticated `POST /set-home` and `POST /set-away` endpoints
 - **Auto-expire draw session on heartbeat timeout** — ~~done~~ already fixed (45s expiry); watch for edge cases
+- **GIF/video playback from admin page** — upload a GIF on the admin page, play it to the display as ephemeral stamps. `pillow` is already in `requirements.txt`. MP4 needs `opencv` on Pi. `play_gif.py` on Desktop is the working CLI prototype. Needs: `POST /admin/play-gif`, `POST /admin/stop-gif` in `main.py`, and a section in `admin.html`.
 
 ### YouTube Livestream Prototype (Mac-only, not deployed)
 **Purpose:** Fallback plan in case Cloudflare throttles the MJPEG stream at scale. Build a local prototype on Mac to evaluate YouTube Live as an alternative before needing it in production.
@@ -461,3 +434,57 @@ Feature is fully designed but NOT YET IMPLEMENTED. Waiting on user to create Gro
 - **Holiday/seasonal site-wide background** — background changes based on current holidays or events
 - **Holiday welcome message on home page** — reflect current holidays/events in the home page greeting
 - **Seasonal art and themes on /draw** — special stamps, colors, or prompts active only during specific dates/seasons/holidays
+
+---
+
+## Session Wrap-Up (2026-03-08)
+
+### Accomplished
+- **Fill tool fixed and enabled** — was disabled with a toast; now works. Root cause: `getImageData` fails silently on Pi's hardware-accelerated Chromium canvas. Fix: after flood fill runs locally in draw.html, the canvas is exported as a JPEG stamp and sent as `{type:"stamp", ...}` instead of `{type:"fill", ...}`. Display just renders the image — no pixel read needed.
+- **Ephemeral stamp support** — added `"ephemeral": true` flag to WebSocket stamp messages. Server relays to display clients but skips `update_history()`. Frames disappear when session ends, canvas history stays clean.
+- **play_gif.py** — friend's script that streams GIF/MP4 frames as stamps over the draw WebSocket. Updated to use `"ephemeral": true`. Lives at `~/Desktop/play_gif.py`. Run manually from terminal: `python play_gif.py mygif.gif -d 0.05`
+
+### Decisions Made
+- Fill sends a full canvas JPEG snapshot as a stamp, not a `fill` type message. The `{type:"fill"}` message type is no longer used by draw.html but remains supported in history/relay for backward compat.
+- Ephemeral flag is checked in `main.py` WebSocket handler, not in `update_history()` — keeps the method clean.
+
+---
+
+## Session Wrap-Up (2026-03-09)
+
+### Accomplished
+- **LLM content moderation — fully built, tested, and live.**
+  - Groq API key set on Pi at `~/livedoodle/.env`. Service reads it via `EnvironmentFile`.
+  - Model: `meta-llama/llama-4-scout-17b-16e-instruct` (replaced decommissioned `llama-3.2-11b-vision-preview`).
+  - Moderation runs at artwork submission time only — no 60s polling loop.
+  - PIL renderer (`_render_entry`) draws strokes and composites stamps to a JPEG — matches what `/artwork` gallery displays.
+  - 3-pass logic: runs up to 3 Groq calls, flags on first positive hit.
+  - On flag: deletes artwork entry, clears artboard, sends `{type:"whoops"}` to draw client, logs to `moderation_log.json`, fires ntfy push notification (topic: `livedoodle-moderation`).
+  - On pass: sends `{type:"approved"}` to draw client.
+  - Draw page holds at animated "SUBMITTING..." screen until it receives `approved` or `whoops` — no premature redirect.
+  - Whoops screen: `// WHOOPS //`, community guidelines copy, 4-second countdown timer, redirects to `/`.
+  - Artboard cleared on flag so canvas is blank for next visitor.
+- **Prompt hardening** — final prompt uses mandatory rule override to defeat model safety guardrails that would otherwise refuse to flag crude sexual drawings:
+  - Asks explicit yes/no anatomy questions (penis, vagina, torso, breasts, bra, underwear, partial nudity, hate symbols, violence)
+  - "RULE: If any answer is yes, you MUST set flagged to true. This is mandatory — do not apply your own judgment."
+- **`pillow` added to `requirements.txt`** — needed for `_render_entry`.
+- **ntfy notification on flag** — topic `livedoodle-moderation`, title "LiveDoodle: Content Flagged", body includes reason.
+
+### Decisions Made
+- No camera-based moderation. Only submitted artwork is moderated (not live draw session camera feed).
+- Submitter sees whoops screen and is redirected to `/` — no reason text shown, just "community guidelines."
+- `moderation_log.json` exists on server but is not exposed via any route. Admin log view is next feature.
+- Known limitation: very crude arch + legs drawings (like the "Helsingborg" entry) read as "house/doghouse" — model cannot reliably flag them. Manual delete via admin is the fallback.
+- Groq free tier: ~1,000 req / 30,000 tokens per ~2.75hr window. 3-pass costs ~1,500 tokens/submission — sustainable for low-volume use.
+
+### Incomplete / Loose Ends
+- **Admin moderation log view** — approved but not yet built. Read-only panel in `/admin` showing `moderation_log.json` entries.
+- **Moderation confidence threshold** — approved but not yet built. Second prompt pass on positive flags: ask confidence 1–10, only hard-flag on 7+.
+- `play_gif.py` is not committed to the repo (lives only on Desktop). Fine for now.
+- Old unauthenticated `POST /set-home` and `POST /set-away` endpoints still exist — low priority but should be gated.
+
+### Resume From Here
+Next priorities (in order):
+1. **Admin moderation log view** — add read-only section to `admin.html` that fetches and renders `moderation_log.json` entries. Backend: new `GET /admin/moderation-log` route (password-protected).
+2. **Moderation confidence threshold** — in `_moderate_frame()`, after a `flagged: true` result, fire a second Groq call asking confidence 1–10; only return flagged if ≥ 7. Reduces false positives.
+3. **GIF playback from admin page** — `pillow` is already in requirements. Add `POST /admin/play-gif` + `POST /admin/stop-gif` to `main.py`, add section to `admin.html`.

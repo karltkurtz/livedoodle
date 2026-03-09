@@ -752,6 +752,20 @@ async def admin_camera_control(request: Request):
         return JSONResponse({"error": str(e)}, status_code=502)
 
 
+@app.get("/admin/moderation-log")
+async def admin_moderation_log(password: str = ""):
+    if password != ADMIN_PASSWORD:
+        return JSONResponse({"error": "wrong password"}, status_code=401)
+    if not os.path.exists(MODERATION_LOG_FILE):
+        return JSONResponse([])
+    try:
+        with open(MODERATION_LOG_FILE) as f:
+            log = json.load(f)
+    except Exception:
+        log = []
+    return JSONResponse(list(reversed(log)))
+
+
 @app.post("/admin/reload-display")
 async def admin_reload_display(request: Request):
     body = await request.json()
