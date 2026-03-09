@@ -933,6 +933,10 @@
   // ── Eraser ──
   const eraserBtn = document.getElementById("eraser-btn");
   const ERASER_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Crect x='2' y='10' width='24' height='14' rx='2' fill='%23f0f0f0' stroke='%23666' stroke-width='1.5'/%3E%3Crect x='2' y='10' width='9' height='14' rx='2' fill='%23ffaaaa' stroke='%23666' stroke-width='1.5'/%3E%3Cline x1='2' y1='24' x2='26' y2='24' stroke='%23444' stroke-width='1'/%3E%3C/svg%3E") 14 24, crosshair`;
+  const FILL_CURSOR = (() => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><path d="M8,8 Q14,2 20,8" fill="none" stroke="#888" stroke-width="1.5"/><path d="M5,8 L7,20 L21,20 L23,8 Z" fill="#ffd040" stroke="#555" stroke-width="1.5"/><line x1="4" y1="8" x2="24" y2="8" stroke="#666" stroke-width="2"/><line x1="14" y1="20" x2="14" y2="25" stroke="#ffd040" stroke-width="2.5" stroke-linecap="round"/><circle cx="14" cy="26" r="2" fill="#ffd040"/></svg>`;
+    return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 14 26, crosshair`;
+  })();
 
   eraserBtn.addEventListener("click", () => {
     isErasing = !isErasing;
@@ -952,7 +956,7 @@
     isErasing = false;
     eraserBtn.classList.remove("active");
     fillBtn.classList.toggle("active", isFilling);
-    canvas.style.cursor = isFilling ? "crosshair" : "crosshair";
+    canvas.style.cursor = isFilling ? FILL_CURSOR : "crosshair";
   });
 
   function floodFill(cx, cy, color) {
