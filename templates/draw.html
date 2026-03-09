@@ -259,6 +259,50 @@
 
     #games-toggle-btn.open { box-shadow: 0 0 14px rgba(191,95,255,0.6); }
 
+    #dpad {
+      display: none;
+      justify-content: center;
+      align-items: center;
+      padding: 8px 0 4px;
+      background: #0a0a0a;
+    }
+    #dpad.visible { display: flex; }
+
+    #dpad-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 44px);
+      grid-template-rows: repeat(3, 44px);
+      gap: 3px;
+    }
+
+    .dpad-btn {
+      width: 44px;
+      height: 44px;
+      background: #111;
+      border: 1px solid #333;
+      color: #888;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: background 0.1s, border-color 0.1s, color 0.1s;
+    }
+    .dpad-btn:active, .dpad-btn.pressed {
+      background: #1a1a1a;
+      border-color: var(--teal);
+      color: var(--teal);
+      box-shadow: 0 0 8px rgba(0,229,255,0.4);
+    }
+    .dpad-center {
+      background: #0f0f0f;
+      border-color: #222;
+      cursor: default;
+    }
+
     .game-btn {
       border-color: var(--teal);
       color: var(--teal);
@@ -700,6 +744,20 @@
         <div id="s-rot"></div>
       </div>
     </div>
+  </div>
+</div>
+
+<div id="dpad">
+  <div id="dpad-grid">
+    <div></div>
+    <button class="dpad-btn" id="dpad-up">▲</button>
+    <div></div>
+    <button class="dpad-btn" id="dpad-left">◀</button>
+    <div class="dpad-btn dpad-center"></div>
+    <button class="dpad-btn" id="dpad-right">▶</button>
+    <div></div>
+    <button class="dpad-btn" id="dpad-down">▼</button>
+    <div></div>
   </div>
 </div>
 
@@ -1513,6 +1571,20 @@
 
   gamesPickerOverlay.addEventListener("click", e => {
     if (e.target === gamesPickerOverlay) closeAllPickers();
+  });
+
+  const dpad = document.getElementById("dpad");
+
+  document.getElementById("maze-btn").addEventListener("click", () => {
+    closeAllPickers();
+    dpad.classList.add("visible");
+  });
+
+  // D-pad button press feedback
+  document.querySelectorAll(".dpad-btn:not(.dpad-center)").forEach(btn => {
+    btn.addEventListener("pointerdown", () => btn.classList.add("pressed"));
+    btn.addEventListener("pointerup",   () => btn.classList.remove("pressed"));
+    btn.addEventListener("pointerleave",() => btn.classList.remove("pressed"));
   });
 
   quotesPickerOverlay.addEventListener("click", e => {
