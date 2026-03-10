@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LiveDoodle // Maintenance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --amber:  #ffb300;
+      --teal:   #00e5ff;
+      --coral:  #ff4a2a;
+      --green:  #39ff14;
+      --bg:     #0a0a0a;
+    }
+
+    html, body {
+      width: 100%; min-height: 100vh;
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg);
+      color: #555;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #starfield {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.1) 3px,
+        rgba(0,0,0,0.1) 4px
+      );
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    #page {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 480px;
+      padding: 44px 24px 60px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 0;
+    }
+
+    #wordmark {
+      font-size: clamp(28px, 8vw, 48px);
+      color: var(--teal);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #wordmark-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      background: var(--coral);
+      border-radius: 50%;
+      animation: blink 1.1s step-start infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+
+    .rule {
+      width: 100%;
+      height: 1px;
+      background: var(--teal);
+      opacity: 0.25;
+      margin: 20px 0;
+    }
+
+    #icon {
+      font-size: 48px;
+      margin-bottom: 20px;
+      filter: grayscale(1) brightness(0.6);
+    }
+
+    h1 {
+      font-size: clamp(14px, 4vw, 20px);
+      color: var(--amber);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    p {
+      font-size: 12px;
+      color: #555;
+      line-height: 1.9;
+      letter-spacing: 0.08em;
+    }
+
+    p span.hi {
+      color: #888;
+    }
+
+    .eta {
+      margin-top: 24px;
+      font-size: 10px;
+      color: #444;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="starfield"></canvas>
+
+  <div id="page">
+    <div id="wordmark">
+      <span id="wordmark-dot"></span>
+      LIVEDOODLE
+    </div>
+
+    <div class="rule"></div>
+
+    <h1>SORRY! BE RIGHT BACK.</h1>
+
+    <p>
+      <span class="hi">I'M MAKING SOME CHANGES TO THE RASPBERRY PI AND HQ CAMERA.</span><br><br>
+      LIVEDOODLE WILL BE BACK UP IN A FEW HOURS.<br>
+      CHECK BACK SOON!
+    </p>
+
+    <p class="eta">// MAINTENANCE IN PROGRESS //</p>
+  </div>
+
+  <script>
+    // Starfield
+    const sf = document.getElementById('starfield');
+    const ctx = sf.getContext('2d');
+    let stars = [];
+    function resizeSF() {
+      sf.width = window.innerWidth;
+      sf.height = window.innerHeight;
+    }
+    function initStars() {
+      stars = [];
+      for (let i = 0; i < 40; i++) {
+        stars.push({
+          x: Math.random() * sf.width,
+          y: Math.random() * sf.height,
+          speed: 0.2 + Math.random() * 0.4,
+          opacity: 0.1 + Math.random() * 0.4
+        });
+      }
+    }
+    function drawStars() {
+      ctx.clearRect(0, 0, sf.width, sf.height);
+      for (const s of stars) {
+        ctx.fillStyle = `rgba(255,255,255,${s.opacity})`;
+        ctx.fillRect(s.x, s.y, 3, 3);
+        s.y -= s.speed;
+        if (s.y < -4) { s.y = sf.height + 4; s.x = Math.random() * sf.width; }
+      }
+      requestAnimationFrame(drawStars);
+    }
+    resizeSF();
+    initStars();
+    drawStars();
+    window.addEventListener('resize', () => { resizeSF(); initStars(); });
+  </script>
+</body>
+</html>
