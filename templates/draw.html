@@ -263,10 +263,28 @@
       display: none;
       justify-content: center;
       align-items: center;
+      gap: 24px;
       padding: 8px 0 4px;
       background: #0a0a0a;
+      margin-top: -40px;
     }
     #dpad.visible { display: flex; }
+
+    #exit-game-btn {
+      border-color: #5a1a1a;
+      color: #7a2a2a;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      padding: 6px 12px;
+      align-self: center;
+      margin-left: 20px;
+      margin-top: -20px;
+    }
+    #exit-game-btn:hover {
+      border-color: var(--coral);
+      color: var(--coral);
+      box-shadow: 0 0 8px rgba(255,74,42,0.3);
+    }
 
     #dpad-grid {
       display: grid;
@@ -337,6 +355,34 @@
       color: #555;
       letter-spacing: 0.25em;
       margin-top: 16px;
+    }
+
+    @keyframes toast-in-out {
+      0%   { opacity: 0; transform: translateY(6px); }
+      12%  { opacity: 1; transform: translateY(0); }
+      80%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    #game-toast {
+      display: none;
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #111;
+      border: 1px solid var(--coral);
+      color: var(--coral);
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      padding: 10px 18px;
+      z-index: 200;
+      white-space: nowrap;
+      box-shadow: 0 0 12px rgba(255,74,42,0.3);
+    }
+    #game-toast.visible {
+      display: block;
+      animation: toast-in-out 3s ease forwards;
     }
 
     .game-btn {
@@ -795,6 +841,7 @@
     <button class="dpad-btn" id="dpad-down">▼</button>
     <div></div>
   </div>
+  <button id="exit-game-btn">EXIT GAME</button>
 </div>
 
 <!-- Maze win overlay -->
@@ -804,6 +851,8 @@
     <div id="maze-win-sub">RETURNING IN <span id="maze-win-count">5</span>...</div>
   </div>
 </div>
+
+<div id="game-toast"></div>
 
 <div id="toolbar">
   <div id="brand">
@@ -967,6 +1016,18 @@
     <div class="picker-panel-title" style="color:var(--purple);">GAMES</div>
     <div class="picker-panel-items" style="flex-direction:column;gap:4px;">
       <button class="game-btn" id="maze-btn">MAZE</button>
+      <button class="game-btn" id="bomberman-btn" style="border-color:var(--coral);color:var(--coral);box-shadow:0 0 6px rgba(255,74,42,0.25);">BOMBERMAN</button>
+    </div>
+  </div>
+</div>
+
+<!-- Maze difficulty overlay -->
+<div class="picker-overlay" id="maze-difficulty-overlay">
+  <div class="picker-panel" style="border:1px solid var(--teal);box-shadow:0 0 18px rgba(0,229,255,0.3);">
+    <div class="picker-panel-title" style="color:var(--teal);">DIFFICULTY</div>
+    <div class="picker-panel-items" style="flex-direction:column;gap:4px;">
+      <button class="game-btn" id="maze-easy-btn">EASY</button>
+      <button class="game-btn" id="maze-hard-btn" style="border-color:var(--coral);color:var(--coral);box-shadow:0 0 6px rgba(255,74,42,0.25);">HARD</button>
     </div>
   </div>
 </div>
@@ -1685,10 +1746,12 @@
     ctx.shadowBlur = 0;
   }
 
-  function startMaze() {
+  function startMaze(difficulty = "easy") {
     mazeActive = true;
     mazeSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    mazeCellSize = Math.floor(Math.min(canvas.width / 21, canvas.height / 13));
+    const divW = difficulty === "hard" ? 35 : 15;
+    const divH = difficulty === "hard" ? 21 : 9;
+    mazeCellSize = Math.floor(Math.min(canvas.width / divW, canvas.height / divH));
     mazeCols = Math.floor(canvas.width  / mazeCellSize);
     mazeRows = Math.floor(canvas.height / mazeCellSize);
     if (mazeCols % 2 === 0) mazeCols--;
@@ -1779,10 +1842,43 @@
     send({ type: "redraw", history: flatHistory() });
   }
 
+  const mazeDifficultyOverlay = document.getElementById("maze-difficulty-overlay");
+
   document.getElementById("maze-btn").addEventListener("click", () => {
     closeAllPickers();
+    mazeDifficultyOverlay.classList.add("visible");
+  });
+
+  mazeDifficultyOverlay.addEventListener("click", e => {
+    if (e.target === mazeDifficultyOverlay) mazeDifficultyOverlay.classList.remove("visible");
+  });
+
+  document.getElementById("maze-easy-btn").addEventListener("click", () => {
+    mazeDifficultyOverlay.classList.remove("visible");
     dpad.classList.add("visible");
-    startMaze();
+    startMaze("easy");
+  });
+
+  document.getElementById("maze-hard-btn").addEventListener("click", () => {
+    mazeDifficultyOverlay.classList.remove("visible");
+    dpad.classList.add("visible");
+    startMaze("hard");
+  });
+
+  const gameToast = document.getElementById("game-toast");
+  let gameToastTimer = null;
+  function showGameToast(msg) {
+    gameToast.textContent = msg;
+    gameToast.classList.remove("visible");
+    void gameToast.offsetWidth; // reflow to restart animation
+    gameToast.classList.add("visible");
+    clearTimeout(gameToastTimer);
+    gameToastTimer = setTimeout(() => gameToast.classList.remove("visible"), 3000);
+  }
+
+  document.getElementById("bomberman-btn").addEventListener("click", () => {
+    closeAllPickers();
+    showGameToast("BOMBERMAN IS CURRENTLY BEING BUILT");
   });
 
   // D-pad buttons
@@ -1790,6 +1886,12 @@
   document.getElementById("dpad-down").addEventListener("click",  () => moveBall(0,  1));
   document.getElementById("dpad-left").addEventListener("click",  () => moveBall(-1, 0));
   document.getElementById("dpad-right").addEventListener("click", () => moveBall(1,  0));
+
+  document.getElementById("exit-game-btn").addEventListener("click", () => {
+    mazeActive = false;
+    mazeMoving = false;
+    endMaze();
+  });
 
   // Keyboard arrow keys
   document.addEventListener("keydown", e => {
