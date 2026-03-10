@@ -1711,14 +1711,32 @@
     }
   }
 
+  function drawWinFrame(n) {
+    ctx.fillStyle = 'rgba(0,0,0,0.82)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // YOU WIN!
+    ctx.font = `bold ${Math.floor(canvas.width * 0.12)}px "Share Tech Mono", monospace`;
+    ctx.fillStyle = '#39ff14';
+    ctx.shadowColor = 'rgba(57,255,20,0.35)';
+    ctx.shadowBlur = 14;
+    ctx.fillText('YOU WIN!', canvas.width / 2, canvas.height * 0.44);
+    // Countdown
+    ctx.font = `${Math.floor(canvas.width * 0.04)}px "Share Tech Mono", monospace`;
+    ctx.fillStyle = '#555';
+    ctx.shadowBlur = 0;
+    ctx.fillText(`RETURNING IN ${n}...`, canvas.width / 2, canvas.height * 0.62);
+    sendMazeFrame();
+  }
+
   function mazeWin() {
     mazeActive = false;
-    mazeWinOverlay.classList.add("visible");
     let n = 5;
-    mazeWinCount.textContent = n;
+    drawWinFrame(n);
     const tick = setInterval(() => {
       n--;
-      mazeWinCount.textContent = n;
+      drawWinFrame(n);
       if (n <= 0) {
         clearInterval(tick);
         endMaze();
@@ -1727,7 +1745,6 @@
   }
 
   function endMaze() {
-    mazeWinOverlay.classList.remove("visible");
     dpad.classList.remove("visible");
     if (mazeSnapshot) { ctx.putImageData(mazeSnapshot, 0, 0); mazeSnapshot = null; }
     else { ctx.clearRect(0, 0, canvas.width, canvas.height); replayHistory(); }
