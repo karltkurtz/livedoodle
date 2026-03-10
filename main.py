@@ -406,6 +406,10 @@ class ConnectionManager:
 
     async def end_session(self, websocket: WebSocket, name: str, duration: int, clear_display: bool = True, clear_history: bool = True):
         if not self.history:
+            try:
+                await websocket.send_json({"type": "approved"})
+            except Exception:
+                pass
             return
         strokes = list(self.history)
         ip = self._client_ips.get(id(websocket), "")
