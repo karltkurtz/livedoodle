@@ -303,6 +303,42 @@
       cursor: default;
     }
 
+    #maze-win-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.75);
+    }
+    #maze-win-overlay.visible { display: flex; }
+
+    @keyframes maze-win-pop {
+      0%   { transform: scale(0.6); opacity: 0; }
+      60%  { transform: scale(1.08); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    #maze-win-box {
+      text-align: center;
+      animation: maze-win-pop 0.4s ease-out forwards;
+    }
+
+    #maze-win-title {
+      font-size: clamp(48px, 12vw, 80px);
+      color: var(--green);
+      letter-spacing: 0.2em;
+      text-shadow: 0 0 30px rgba(57,255,20,0.8), 0 0 60px rgba(57,255,20,0.4);
+    }
+
+    #maze-win-sub {
+      font-size: 13px;
+      color: #555;
+      letter-spacing: 0.25em;
+      margin-top: 16px;
+    }
+
     .game-btn {
       border-color: var(--teal);
       color: var(--teal);
@@ -761,6 +797,14 @@
   </div>
 </div>
 
+<!-- Maze win overlay -->
+<div id="maze-win-overlay">
+  <div id="maze-win-box">
+    <div id="maze-win-title">YOU WIN!</div>
+    <div id="maze-win-sub">RETURNING IN <span id="maze-win-count">5</span>...</div>
+  </div>
+</div>
+
 <div id="toolbar">
   <div id="brand">
     <div id="brand-left">
@@ -1181,6 +1225,7 @@
   const toolbar       = document.getElementById("toolbar");
 
   function startDraw(x, y) {
+    if (mazeActive) return;
     if (stampOverlay.classList.contains("active")) return;
     if (isFilling) {
       const color = getColor();
@@ -1575,9 +1620,131 @@
 
   const dpad = document.getElementById("dpad");
 
+  // ── Maze game ──
+  const mazeWinOverlay = document.getElementById("maze-win-overlay");
+  const mazeWinCount   = document.getElementById("maze-win-count");
+  let mazeActive = false;
+  let mazeGrid = [], mazeCols = 0, mazeRows = 0, mazeCellSize = 0;
+  let ballCol = 1, ballRow = 1, exitCol = 0, exitRow = 0;
+  let mazeSnapshot = null;
+
+  function generateMaze(cols, rows) {
+    const grid = Array.from({ length: rows }, () => Array(cols).fill(1));
+    function carve(c, r) {
+      grid[r][c] = 0;
+      const dirs = [[0,-2],[0,2],[-2,0],[2,0]].sort(() => Math.random() - 0.5);
+      for (const [dc, dr] of dirs) {
+        const nc = c + dc, nr = r + dr;
+        if (nr > 0 && nr < rows && nc > 0 && nc < cols && grid[nr][nc] === 1) {
+          grid[r + dr/2][c + dc/2] = 0;
+          carve(nc, nr);
+        }
+      }
+    }
+    carve(1, 1);
+    return grid;
+  }
+
+  function drawMazeFrame() {
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Walls
+    ctx.fillStyle = '#00e5ff';
+    for (let r = 0; r < mazeRows; r++) {
+      for (let c = 0; c < mazeCols; c++) {
+        if (mazeGrid[r][c] === 1) {
+          ctx.fillRect(c * mazeCellSize, r * mazeCellSize, mazeCellSize, mazeCellSize);
+        }
+      }
+    }
+    // Exit — glowing green square
+    const ex = exitCol * mazeCellSize, ey = exitRow * mazeCellSize, cs = mazeCellSize;
+    ctx.fillStyle = '#39ff14';
+    ctx.fillRect(ex + 3, ey + 3, cs - 6, cs - 6);
+    ctx.fillStyle = '#0a0a0a';
+    ctx.font = `bold ${Math.max(7, cs * 0.28)}px "Share Tech Mono", monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('EXIT', ex + cs / 2, ey + cs / 2);
+    // Ball — amber circle
+    ctx.fillStyle = '#ffb300';
+    ctx.shadowColor = 'rgba(255,179,0,0.7)';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(
+      ballCol * mazeCellSize + mazeCellSize / 2,
+      ballRow * mazeCellSize + mazeCellSize / 2,
+      mazeCellSize * 0.32, 0, Math.PI * 2
+    );
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  function startMaze() {
+    mazeActive = true;
+    mazeSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    mazeCellSize = Math.floor(Math.min(canvas.width / 21, canvas.height / 13));
+    mazeCols = Math.floor(canvas.width  / mazeCellSize);
+    mazeRows = Math.floor(canvas.height / mazeCellSize);
+    if (mazeCols % 2 === 0) mazeCols--;
+    if (mazeRows % 2 === 0) mazeRows--;
+    mazeGrid = generateMaze(mazeCols, mazeRows);
+    ballCol = 1; ballRow = 1;
+    exitCol = mazeCols - 2; exitRow = mazeRows - 2;
+    drawMazeFrame();
+  }
+
+  function moveBall(dc, dr) {
+    if (!mazeActive) return;
+    const nc = ballCol + dc, nr = ballRow + dr;
+    if (nr >= 0 && nr < mazeRows && nc >= 0 && nc < mazeCols && mazeGrid[nr][nc] === 0) {
+      ballCol = nc; ballRow = nr;
+      drawMazeFrame();
+      if (ballCol === exitCol && ballRow === exitRow) mazeWin();
+    }
+  }
+
+  function mazeWin() {
+    mazeActive = false;
+    mazeWinOverlay.classList.add("visible");
+    let n = 5;
+    mazeWinCount.textContent = n;
+    const tick = setInterval(() => {
+      n--;
+      mazeWinCount.textContent = n;
+      if (n <= 0) {
+        clearInterval(tick);
+        endMaze();
+      }
+    }, 1000);
+  }
+
+  function endMaze() {
+    mazeWinOverlay.classList.remove("visible");
+    dpad.classList.remove("visible");
+    if (mazeSnapshot) { ctx.putImageData(mazeSnapshot, 0, 0); mazeSnapshot = null; }
+    else { ctx.clearRect(0, 0, canvas.width, canvas.height); replayHistory(); }
+  }
+
   document.getElementById("maze-btn").addEventListener("click", () => {
     closeAllPickers();
     dpad.classList.add("visible");
+    startMaze();
+  });
+
+  // D-pad buttons
+  document.getElementById("dpad-up").addEventListener("click",    () => moveBall(0, -1));
+  document.getElementById("dpad-down").addEventListener("click",  () => moveBall(0,  1));
+  document.getElementById("dpad-left").addEventListener("click",  () => moveBall(-1, 0));
+  document.getElementById("dpad-right").addEventListener("click", () => moveBall(1,  0));
+
+  // Keyboard arrow keys
+  document.addEventListener("keydown", e => {
+    if (!mazeActive) return;
+    if (e.key === "ArrowUp")    { e.preventDefault(); moveBall(0, -1); }
+    if (e.key === "ArrowDown")  { e.preventDefault(); moveBall(0,  1); }
+    if (e.key === "ArrowLeft")  { e.preventDefault(); moveBall(-1, 0); }
+    if (e.key === "ArrowRight") { e.preventDefault(); moveBall(1,  0); }
   });
 
   // D-pad button press feedback
