@@ -1645,6 +1645,11 @@
     return grid;
   }
 
+  function sendMazeFrame() {
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+    send({ type: "stamp", data: dataUrl, x: 0.5, y: 0.5, w: 1.0, h: 1.0, r: 0, ephemeral: true });
+  }
+
   function drawMazeFrame() {
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1692,6 +1697,7 @@
     ballCol = 1; ballRow = 1;
     exitCol = mazeCols - 2; exitRow = mazeRows - 2;
     drawMazeFrame();
+    sendMazeFrame();
   }
 
   function moveBall(dc, dr) {
@@ -1700,6 +1706,7 @@
     if (nr >= 0 && nr < mazeRows && nc >= 0 && nc < mazeCols && mazeGrid[nr][nc] === 0) {
       ballCol = nc; ballRow = nr;
       drawMazeFrame();
+      sendMazeFrame();
       if (ballCol === exitCol && ballRow === exitRow) mazeWin();
     }
   }
@@ -1724,6 +1731,8 @@
     dpad.classList.remove("visible");
     if (mazeSnapshot) { ctx.putImageData(mazeSnapshot, 0, 0); mazeSnapshot = null; }
     else { ctx.clearRect(0, 0, canvas.width, canvas.height); replayHistory(); }
+    // Resync display with real artwork history
+    send({ type: "redraw", history: flatHistory() });
   }
 
   document.getElementById("maze-btn").addEventListener("click", () => {
