@@ -2386,6 +2386,7 @@
   function bExplode(b) {
     bBombs = bBombs.filter(x => x !== b);
     bDirty = true;
+    sndExplosion();
     const now = Date.now();
     const exp = now + FLAME_LIFE;
     bFlames.push({ col: b.col, row: b.row, expireAt: exp });
@@ -2428,6 +2429,7 @@
     b.timerId = setTimeout(() => bExplode(b), BOMB_FUSE);
     bBombs.push(b);
     bDirty = true;
+    sndBombPlace();
   }
 
   function moveBomber(dc, dr) {
@@ -2438,8 +2440,8 @@
     bDirty = true;
     // collect powerup
     const cell = bGrid[nr][nc];
-    if (cell === 5) { bMaxBombs = Math.min(bMaxBombs + 1, 5); bGrid[nr][nc] = 0; }
-    if (cell === 6) { bBombRange = Math.min(bBombRange + 1, 8); bGrid[nr][nc] = 0; }
+    if (cell === 5) { bMaxBombs = Math.min(bMaxBombs + 1, 5); bGrid[nr][nc] = 0; sndPowerup(); }
+    if (cell === 6) { bBombRange = Math.min(bBombRange + 1, 8); bGrid[nr][nc] = 0; sndPowerup(); }
     // win check
     if (bExitRevealed && nc === bExitCol && nr === bExitRow) {
       bGameWon = true; bomberWin(); return;
@@ -2477,6 +2479,107 @@
     send({ type: "stamp", data: dataUrl, x: 0.5, y: 0.5, w: 1.0, h: 1.0, r: 0, ephemeral: true });
   }
 
+  // --- Bomberman Audio (Web Audio API, synthesized) ---
+  let _bAudioCtx = null;
+  function _bAC() {
+    if (!_bAudioCtx) _bAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return _bAudioCtx;
+  }
+
+  function sndBombPlace() {
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.connect(gain); gain.connect(ac.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(120, t);
+      osc.frequency.exponentialRampToValueAtTime(60, t + 0.15);
+      gain.gain.setValueAtTime(0.35, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      osc.start(t); osc.stop(t + 0.2);
+    } catch(e) {}
+  }
+
+  function sndExplosion() {
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      const buf = ac.createBuffer(1, ac.sampleRate * 0.45, ac.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1);
+      const src = ac.createBufferSource();
+      src.buffer = buf;
+      const filter = ac.createBiquadFilter();
+      filter.type = 'lowpass'; filter.frequency.value = 600;
+      const gain = ac.createGain();
+      src.connect(filter); filter.connect(gain); gain.connect(ac.destination);
+      gain.gain.setValueAtTime(0.7, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+      src.start(t); src.stop(t + 0.5);
+    } catch(e) {}
+  }
+
+  function sndPowerup() {
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      const freqs = [440, 554, 659, 880];
+      freqs.forEach((f, i) => {
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.connect(gain); gain.connect(ac.destination);
+        osc.type = 'square';
+        osc.frequency.value = f;
+        const s = t + i * 0.07;
+        gain.gain.setValueAtTime(0.18, s);
+        gain.gain.exponentialRampToValueAtTime(0.001, s + 0.1);
+        osc.start(s); osc.stop(s + 0.12);
+      });
+    } catch(e) {}
+  }
+
+  function sndWin() {
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      const notes = [523, 659, 784, 1047, 784, 1047, 1319];
+      const durs  = [0.1, 0.1, 0.1, 0.2,  0.1, 0.1,  0.35];
+      let offset = 0;
+      notes.forEach((f, i) => {
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.connect(gain); gain.connect(ac.destination);
+        osc.type = 'square';
+        osc.frequency.value = f;
+        const s = t + offset;
+        gain.gain.setValueAtTime(0.22, s);
+        gain.gain.exponentialRampToValueAtTime(0.001, s + durs[i]);
+        osc.start(s); osc.stop(s + durs[i] + 0.02);
+        offset += durs[i];
+      });
+    } catch(e) {}
+  }
+
+  function sndGameOver() {
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      const notes = [392, 349, 311, 262];
+      const durs  = [0.18, 0.18, 0.18, 0.55];
+      let offset = 0;
+      notes.forEach((f, i) => {
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.connect(gain); gain.connect(ac.destination);
+        osc.type = 'sawtooth';
+        osc.frequency.value = f;
+        const s = t + offset;
+        gain.gain.setValueAtTime(0.2, s);
+        gain.gain.exponentialRampToValueAtTime(0.001, s + durs[i]);
+        osc.start(s); osc.stop(s + durs[i] + 0.02);
+        offset += durs[i];
+      });
+    } catch(e) {}
+  }
+  // --- End Bomberman Audio ---
+
   function startBomberman() {
     bombActive = true; bGameOver = false; bGameWon = false;
     bSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -2498,6 +2601,7 @@
   }
 
   function bomberWin() {
+    sndWin();
     clearInterval(bLoopId);
     drawBombFrame();
     ctx.fillStyle = 'rgba(0,0,0,0.82)';
@@ -2521,6 +2625,7 @@
   }
 
   function bomberGameOver() {
+    sndGameOver();
     clearInterval(bLoopId);
     drawBombFrame();
     ctx.fillStyle = 'rgba(0,0,0,0.82)';
