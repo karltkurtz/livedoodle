@@ -478,9 +478,9 @@
     /* ── WARGAME ── */
     #wargame-input-row {
       display: none;
-      align-items: center;
+      flex-wrap: wrap;
       gap: 8px;
-      padding: 5px 12px;
+      padding: 8px 12px;
       background: #000;
       border: 1px solid #003300;
       border-top: none;
@@ -489,59 +489,19 @@
       max-width: 960px;
     }
     #wargame-input-row.visible { display: flex; }
-    #wg-prompt {
-      color: #00c800;
+    #wg-buttons { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+    .wg-btn {
       font-family: 'Share Tech Mono', monospace;
-      font-size: 18px;
-      line-height: 1;
-    }
-    #wg-input {
-      flex: 1;
-      background: #000;
-      border: none;
-      border-bottom: 1px solid #00c800;
-      color: #00c800;
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 16px;
-      outline: none;
-      text-transform: uppercase;
-      caret-color: #00ff00;
-      padding: 2px 0;
-    }
-    #wg-input::placeholder { color: #002200; }
-
-    #wg-yesno {
-      display: none;
-      gap: 8px;
-    }
-    #wg-yesno.visible { display: flex; }
-    #wg-yes, #wg-no {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 13px;
+      font-size: 12px;
       letter-spacing: 0.12em;
-      padding: 4px 14px;
+      padding: 5px 14px;
       background: #000;
       cursor: pointer;
-      border: 1px solid;
+      border: 1px solid #00c800;
+      color: #00c800;
     }
-    #wg-yes  { color: #00c800; border-color: #00c800; }
-    #wg-no   { color: #ff4a2a; border-color: #ff4a2a; }
-    #wg-yes:active { background: #001400; }
-    #wg-no:active  { background: #1a0500; }
-    #wg-exit {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 11px;
-      letter-spacing: 0.15em;
-      background: transparent;
-      padding: 4px 10px;
-      cursor: pointer;
-      border: 1px solid;
-      color: #7a2a2a;
-      border-color: #5a1a1a;
-      margin-left: auto;
-      flex-shrink: 0;
-    }
-    #wg-exit:active { background: #1a0500; border-color: var(--coral); color: var(--coral); }
+    .wg-btn.red { border-color: #ff4a2a; color: #ff4a2a; }
+    .wg-btn:active { opacity: 0.6; }
 
     /* hide dpad arrows and bomb (but keep EXIT btn) when wargame is active */
     #dpad.wargame #dpad-grid { display: none; }
@@ -989,13 +949,7 @@
     </div>
   </div>
   <div id="wargame-input-row">
-    <span id="wg-prompt">&gt;</span>
-    <input type="text" id="wg-input" placeholder="TYPE YOUR COMMAND" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" />
-    <div id="wg-yesno">
-      <button id="wg-yes">YES</button>
-      <button id="wg-no">NO</button>
-    </div>
-    <button id="wg-exit">EXIT</button>
+    <div id="wg-buttons"></div>
   </div>
 </div>
 
@@ -2544,7 +2498,6 @@
     if (wgState === "LOGIN") {
       wgState = "SIDE_SELECT"; wgDefcon = 4;
       wgLog = ["GLOBAL THERMONUCLEAR WAR", "CHOOSE YOUR SIDE:", " 1. UNITED STATES", " 2. SOVIET UNION"];
-      wgUpdateUI();
     } else if (wgState === "SIDE_SELECT") {
       if (["USA","US","UNITED STATES","AMERICA","1","AMERICAN"].some(w => text.includes(w))) {
         wgSide = "USA"; wgAvail = WG_USA_TARGETS.map(t => ({...t}));
@@ -2609,9 +2562,8 @@
               "", "A STRANGE GAME.",
               "THE ONLY WINNING MOVE IS", "NOT TO PLAY.",
               "", "HOW ABOUT A NICE GAME OF CHESS?",
-              "", "(TYPE ANYTHING TO PLAY AGAIN)",
             ];
-            wgRender(); wgSendFrame();
+            wgRender(); wgSendFrame(); wgUpdateUI();
           }, 2000);
         }
       } else { clearInterval(wgAnimId); wgAnimId = null; }
@@ -2725,15 +2677,42 @@
     ctx.shadowBlur=0; ctx.textAlign='left';
   }
 
+  function wgMakeBtn(label, cb, red) {
+    const b = document.createElement("button");
+    b.className = "wg-btn" + (red ? " red" : "");
+    b.textContent = label;
+    b.addEventListener("click", cb);
+    return b;
+  }
+
   function wgUpdateUI() {
-    const isLogin = wgActive && wgState === "LOGIN";
-    document.getElementById("wg-yesno").classList.toggle("visible", isLogin);
-    document.getElementById("wg-prompt").style.display = isLogin ? "none" : "";
-    document.getElementById("wg-input").style.display  = isLogin ? "none" : "";
-    if (isLogin) {
-      // don't steal focus from game
-    } else if (wgActive) {
-      document.getElementById("wg-input").focus();
+    const el = document.getElementById("wg-buttons");
+    el.innerHTML = "";
+    if (!wgActive) return;
+    if (wgState === "LOGIN") {
+      el.appendChild(wgMakeBtn("YES", () => wgDispatch("YES")));
+      el.appendChild(wgMakeBtn("NO — EXIT", () => endWargame(), true));
+    } else if (wgState === "SIDE_SELECT") {
+      el.appendChild(wgMakeBtn("1. UNITED STATES", () => wgDispatch("1")));
+      el.appendChild(wgMakeBtn("2. SOVIET UNION",  () => wgDispatch("2")));
+    } else if (wgState === "TARGET_SELECT") {
+      wgAvail.forEach((t, i) => {
+        if (!wgTargets.includes(t))
+          el.appendChild(wgMakeBtn(`${i+1}. ${t.name}`, () => wgDispatch(String(i+1))));
+      });
+    } else if (wgState === "LAUNCH_CONFIRM") {
+      el.appendChild(wgMakeBtn("YES — LAUNCH", () => wgDispatch("YES")));
+      el.appendChild(wgMakeBtn("NO — ABORT",   () => wgDispatch("NO"), true));
+    } else if (wgState === "LESSON") {
+      el.appendChild(wgMakeBtn("PLAY AGAIN", () => wgDispatch("YES")));
+    }
+  }
+
+  function wgDispatch(input) {
+    wgHandleInput(input);
+    wgUpdateUI();
+    if (!["MISSILES_AWAY", "RETALIATION", "BOOT"].includes(wgState)) {
+      wgRender(); wgSendFrame();
     }
   }
 
@@ -2763,7 +2742,6 @@
     wgReset();
     dpad.classList.add("visible", "wargame");
     document.getElementById("wargame-input-row").classList.add("visible");
-    setTimeout(() => document.getElementById("wg-input").focus(), 100);
     wgCursorId = setInterval(() => { if (wgActive && wgState !== "MISSILES_AWAY" && wgState !== "RETALIATION") wgRender(); }, 500);
     wgStartBoot();
   }
@@ -2780,28 +2758,6 @@
     send({ type: "redraw", history: flatHistory() });
   }
 
-  document.getElementById("wg-input").addEventListener("keydown", e => {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    const val = e.target.value.trim();
-    e.target.value = "";
-    if (!val || !wgActive) return;
-    wgHandleInput(val);
-    if (wgState !== "MISSILES_AWAY" && wgState !== "RETALIATION" && wgState !== "BOOT") {
-      wgRender(); wgSendFrame();
-    }
-  });
-
-  document.getElementById("wg-yes").addEventListener("click", () => {
-    if (!wgActive) return;
-    wgHandleInput("YES");
-    wgUpdateUI();
-    if (wgState !== "MISSILES_AWAY" && wgState !== "RETALIATION" && wgState !== "BOOT") {
-      wgRender(); wgSendFrame();
-    }
-  });
-  document.getElementById("wg-no").addEventListener("click", () => endWargame());
-  document.getElementById("wg-exit").addEventListener("click", () => endWargame());
 
   document.getElementById("bomberman-btn").addEventListener("click", () => {
     closeAllPickers();
