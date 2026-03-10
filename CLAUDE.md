@@ -5,14 +5,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Run dev server (with hot reload)
-uvicorn main:app --reload
+# Run dev server (with hot reload) — Mac requires Python 3.12+ (main.py uses X|Y union types)
+/opt/homebrew/bin/python3.12 -m uvicorn main:app --reload
 
 # Run production-style (matches Pi A service)
 uvicorn main:app --host 0.0.0.0 --port 8000 --proxy-headers
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (Mac)
+/opt/homebrew/bin/pip3.12 install --break-system-packages -r requirements.txt
 ```
 
 No build step. No Node. No npm.
@@ -499,33 +499,43 @@ Next priorities (in order):
 - **Pulsing glow on active FILL/ERASER** — teal pulse for ERASER, green pulse for FILL (1.4s ease-in-out infinite).
 - **Fill bucket cursor** — SVG paint bucket cursor via `encodeURIComponent()` when FILL is active.
 - **Canvas max-width 960px** — draw page canvas capped at 960px wide on desktop.
-- **Maze game** (`maze-game` branch, not yet merged to main):
-  - GAMES picker button (purple) added after QUOTES in toolbar
-  - MAZE button opens DIFFICULTY popup (EASY/HARD) → starts procedural maze
-  - Recursive backtracker maze generation; EASY ~15×9 grid, HARD ~35×21 grid
-  - Amber ball, teal walls, green EXIT label (bottom-right)
-  - D-pad (▲▼◀▶) appears below canvas; ball slides until wall or intersection
-  - Arrow keys also work on desktop
-  - Each frame sent as ephemeral stamp → livestreams live to display
-  - YOU WIN! drawn on canvas (green glow) with 5s countdown, then restores artwork + resyncs display via `redraw`
-  - EXIT GAME button (faint red) next to d-pad to quit anytime
-  - BOMBERMAN stub button → coral toast "BOMBERMAN IS CURRENTLY BEING BUILT"
+- **Maze game** — merged to `main` and live on pigarage.com.
+- **Bomberman game** — full game built and live on `main`:
+  - Procedural grid: indestructible walls at even row+col intersections, soft blocks (amber brick) at ~65% of other cells
+  - Player (amber circle with head/eyes) starts at (1,1); moves one cell at a time via d-pad or arrow keys
+  - BOMB button (coral) appears in d-pad row; spacebar also works on desktop
+  - Bombs: 2.5s fuse, pulsing animation; explosion range 3 (upgradeable); chain reactions
+  - Flames: 550ms duration, color-fades from yellow→orange→coral
+  - Powerups: **+B** (amber, +1 bomb capacity) and **+F** (coral, +1 flame range) hidden under ~25% of soft blocks; revealed when block destroyed; walk over to collect
+  - Hidden exit (green ▶) under a soft block near far corner; revealed on destruction; walk onto it to win
+  - HUD: `BOMBS x?` / `FLAME x?` in bottom-left
+  - Game over: GAME OVER screen (coral) + 4s countdown; win: YOU WIN! screen (green) + 5s countdown; both restore artwork and resync display
+  - `bDirty` flag + 8fps cap for display sends (event-driven: sends on move/bomb/explosion/flame-expire only)
+- **GAMES button animation** — pulsing purple glow (1.8s) + blinking coral NEW badge; stops when picker is opened
+- **LCD white flash fix (partial)** — two causes addressed:
+  1. Ephemeral stamps were pushed into `history` on `display.html` → `redraw()` cascade on sync → white flash. Fixed: ephemeral stamps bypass history entirely, drawn directly.
+  2. 20fps JPEG spam overloaded Pi WebSocket → disconnect → reconnect → sync → `redraw()` → white. Fixed: event-driven sends with `bDirty` flag + 8fps cap + lower JPEG quality (0.55).
+  - **Still some occasional white flashes remain** — suspected cause: WebSocket reconnects under load still happening, or `redraw()` being triggered by other events (e.g. artwork sync on new viewer connect). Not fully resolved.
 
 ### Decisions Made
-- Maze game lives on `maze-game` branch — not merged to `main` yet. Merge when ready to ship.
-- Game frames sent as `ephemeral: true` stamps — never pollute artwork history.
-- Win screen drawn on canvas (not DOM overlay) so it appears on the livestream.
-- `mazeMoving` flag prevents input stacking during ball animation.
+- `maze-game` branch merged to `main` and deployed.
+- Game frames are event-driven, not tick-driven, for display sends. Local canvas still animates at full rate for player.
+- Bomberman is single-player only for now (no enemies). Enemies deferred.
+- Mac dev server requires Python 3.12+ (`main.py` uses `X | Y` union syntax); Mac system Python is 3.9. Use `/opt/homebrew/bin/python3.12 -m uvicorn main:app --reload`.
 
 ### Incomplete / Loose Ends
-- **`maze-game` branch not merged** — all maze work is on this branch. Merge to `main` when ready.
-- **BOMBERMAN** — stub only, toast says "being built."
-- **Moderation confidence threshold** — still not built (carry over from previous session).
+- **LCD white flash not fully fixed** — occasional flashes still reported. Likely WebSocket reconnects on the Pi. Next things to try:
+  - Investigate if Pi WebSocket disconnects during game (check Pi logs: `sudo journalctl -u livedoodle -f`)
+  - Consider further reducing game frame JPEG size or quality
+  - Consider a debounced `redraw()` on display.html that delays clear until images are ready (double-buffer)
+  - Consider changing `clearCanvas()` to fill `#0a0a0a` instead of white so flashes are black (invisible)
+- **Moderation confidence threshold** — still not built (carry over).
 - **GIF playback from admin page** — still not built (carry over).
 - Old unauthenticated `POST /set-home` and `POST /set-away` still exist.
+- **Bomberman enemies** — deferred. Simple wandering AI is the next step once flash is resolved.
 
 ### Resume From Here
-1. **Stay on `maze-game` branch and build BOMBERMAN** — full game, not a stub. Start here next session.
-2. **Merge `maze-game` into `main`** when both maze and Bomberman are shippable.
+1. **Fix LCD white flash completely** — change `clearCanvas()` to black as a quick win; then investigate Pi WS reconnects.
+2. **Bomberman enemies** — simple wandering AI, game over on contact.
 3. **Moderation confidence threshold** — second Groq pass on positive flags (confidence 1–10, only flag if ≥ 7).
 4. **GIF playback from admin page** — `POST /admin/play-gif` + `POST /admin/stop-gif`.
