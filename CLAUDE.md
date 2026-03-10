@@ -488,3 +488,44 @@ Next priorities (in order):
 1. **Admin moderation log view** — add read-only section to `admin.html` that fetches and renders `moderation_log.json` entries. Backend: new `GET /admin/moderation-log` route (password-protected).
 2. **Moderation confidence threshold** — in `_moderate_frame()`, after a `flagged: true` result, fire a second Groq call asking confidence 1–10; only return flagged if ≥ 7. Reduces false positives.
 3. **GIF playback from admin page** — `pillow` is already in requirements. Add `POST /admin/play-gif` + `POST /admin/stop-gif` to `main.py`, add section to `admin.html`.
+
+---
+
+## Session Wrap-Up (2026-03-10)
+
+### Accomplished
+- **SQLite moderation log in admin** — replaced flat JSON with `moderation.db` (stdlib `sqlite3`); sortable/searchable table in `/admin` (sort by timestamp/name/IP/location/reason; client-side filter). `GET /admin/moderation-log` route (password-protected).
+- **Fill mode toolbar dimming** — when FILL active, all other buttons dim + `pointer-events:none`; slider/label dim; swatches stay active. Same pattern added for ERASER (`eraser-mode` class).
+- **Pulsing glow on active FILL/ERASER** — teal pulse for ERASER, green pulse for FILL (1.4s ease-in-out infinite).
+- **Fill bucket cursor** — SVG paint bucket cursor via `encodeURIComponent()` when FILL is active.
+- **Canvas max-width 960px** — draw page canvas capped at 960px wide on desktop.
+- **Maze game** (`maze-game` branch, not yet merged to main):
+  - GAMES picker button (purple) added after QUOTES in toolbar
+  - MAZE button opens DIFFICULTY popup (EASY/HARD) → starts procedural maze
+  - Recursive backtracker maze generation; EASY ~15×9 grid, HARD ~35×21 grid
+  - Amber ball, teal walls, green EXIT label (bottom-right)
+  - D-pad (▲▼◀▶) appears below canvas; ball slides until wall or intersection
+  - Arrow keys also work on desktop
+  - Each frame sent as ephemeral stamp → livestreams live to display
+  - YOU WIN! drawn on canvas (green glow) with 5s countdown, then restores artwork + resyncs display via `redraw`
+  - EXIT GAME button (faint red) next to d-pad to quit anytime
+  - BOMBERMAN stub button → coral toast "BOMBERMAN IS CURRENTLY BEING BUILT"
+
+### Decisions Made
+- Maze game lives on `maze-game` branch — not merged to `main` yet. Merge when ready to ship.
+- Game frames sent as `ephemeral: true` stamps — never pollute artwork history.
+- Win screen drawn on canvas (not DOM overlay) so it appears on the livestream.
+- `mazeMoving` flag prevents input stacking during ball animation.
+
+### Incomplete / Loose Ends
+- **`maze-game` branch not merged** — all maze work is on this branch. Merge to `main` when ready.
+- **BOMBERMAN** — stub only, toast says "being built."
+- **Moderation confidence threshold** — still not built (carry over from previous session).
+- **GIF playback from admin page** — still not built (carry over).
+- Old unauthenticated `POST /set-home` and `POST /set-away` still exist.
+
+### Resume From Here
+1. **Stay on `maze-game` branch and build BOMBERMAN** — full game, not a stub. Start here next session.
+2. **Merge `maze-game` into `main`** when both maze and Bomberman are shippable.
+3. **Moderation confidence threshold** — second Groq pass on positive flags (confidence 1–10, only flag if ≥ 7).
+4. **GIF playback from admin page** — `POST /admin/play-gif` + `POST /admin/stop-gif`.
