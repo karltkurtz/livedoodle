@@ -32,8 +32,9 @@
       min-height: 0;
       overflow: hidden;
       display: flex;
-      align-items: flex-start;
-      justify-content: center;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
       padding: 8px 8px 0;
       position: relative;
     }
@@ -472,6 +473,85 @@
       letter-spacing: 0.15em;
     }
 
+    /* ── WARGAME ── */
+    #wargame-input-row {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      background: #000;
+      border: 1px solid #003300;
+      border-top: none;
+      flex-shrink: 0;
+      width: 100%;
+      max-width: 960px;
+    }
+    #wargame-input-row.visible { display: flex; }
+    #wg-prompt {
+      color: #00c800;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 18px;
+      line-height: 1;
+    }
+    #wg-input {
+      flex: 1;
+      background: #000;
+      border: none;
+      border-bottom: 1px solid #00c800;
+      color: #00c800;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 16px;
+      outline: none;
+      text-transform: uppercase;
+      caret-color: #00ff00;
+      padding: 2px 0;
+    }
+    #wg-input::placeholder { color: #002200; }
+
+    #wg-yesno {
+      display: none;
+      gap: 8px;
+    }
+    #wg-yesno.visible { display: flex; }
+    #wg-yes, #wg-no {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      padding: 4px 14px;
+      background: #000;
+      cursor: pointer;
+      border: 1px solid;
+    }
+    #wg-yes  { color: #00c800; border-color: #00c800; }
+    #wg-no   { color: #ff4a2a; border-color: #ff4a2a; }
+    #wg-yes:active { background: #001400; }
+    #wg-no:active  { background: #1a0500; }
+    #wg-exit {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      background: transparent;
+      padding: 4px 10px;
+      cursor: pointer;
+      border: 1px solid;
+      color: #7a2a2a;
+      border-color: #5a1a1a;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+    #wg-exit:active { background: #1a0500; border-color: var(--coral); color: var(--coral); }
+
+    /* hide dpad arrows and bomb (but keep EXIT btn) when wargame is active */
+    #dpad.wargame #dpad-grid { display: none; }
+    #dpad.wargame #bomb-btn  { display: none; }
+    #dpad.wargame #exit-game-btn {
+      margin-top: 0;
+      margin-left: 0;
+      border-color: var(--coral);
+      color: var(--coral);
+      box-shadow: 0 0 8px rgba(255,74,42,0.3);
+    }
+
     .quote-btn {
       font-size: 9px;
       padding: 7px 10px;
@@ -906,6 +986,15 @@
       </div>
     </div>
   </div>
+  <div id="wargame-input-row">
+    <span id="wg-prompt">&gt;</span>
+    <input type="text" id="wg-input" placeholder="TYPE YOUR COMMAND" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" />
+    <div id="wg-yesno">
+      <button id="wg-yes">YES</button>
+      <button id="wg-no">NO</button>
+    </div>
+    <button id="wg-exit">EXIT</button>
+  </div>
 </div>
 
 <div id="dpad">
@@ -1113,6 +1202,7 @@
     <div class="picker-panel-items" style="flex-direction:column;gap:4px;">
       <button class="game-btn" id="maze-btn">MAZE</button>
       <button class="game-btn" id="bomberman-btn" style="border-color:var(--coral);color:var(--coral);box-shadow:0 0 6px rgba(255,74,42,0.25);">BOMBERMAN</button>
+      <button class="game-btn" id="wargame-btn" style="border-color:var(--green);color:var(--green);box-shadow:0 0 6px rgba(57,255,20,0.25);">WARGAME</button>
     </div>
   </div>
 </div>
@@ -1382,7 +1472,7 @@
   const toolbar       = document.getElementById("toolbar");
 
   function startDraw(x, y) {
-    if (mazeActive || bombActive) return;
+    if (mazeActive || bombActive || wgActive) return;
     if (stampOverlay.classList.contains("active")) return;
     if (isFilling) {
       const color = getColor();
@@ -2371,9 +2461,354 @@
     send({ type: "redraw", history: flatHistory() });
   }
 
+  // ── WARGAME ──
+  const WG_USA_TARGETS = [
+    { name: "MOSCOW",        pop: "12.6", x: 0.58, y: 0.28 },
+    { name: "ST PETERSBURG", pop: "5.4",  x: 0.55, y: 0.24 },
+    { name: "NOVOSIBIRSK",   pop: "1.6",  x: 0.70, y: 0.30 },
+    { name: "VLADIVOSTOK",   pop: "0.6",  x: 0.87, y: 0.35 },
+    { name: "SEVASTOPOL",    pop: "0.4",  x: 0.56, y: 0.33 },
+    { name: "MURMANSK",      pop: "0.3",  x: 0.55, y: 0.19 },
+  ];
+  const WG_USSR_TARGETS = [
+    { name: "NEW YORK",      pop: "8.3",  x: 0.24, y: 0.36 },
+    { name: "LOS ANGELES",   pop: "3.9",  x: 0.10, y: 0.39 },
+    { name: "CHICAGO",       pop: "2.7",  x: 0.19, y: 0.35 },
+    { name: "WASHINGTON DC", pop: "0.7",  x: 0.23, y: 0.37 },
+    { name: "SAN FRANCISCO", pop: "0.9",  x: 0.08, y: 0.37 },
+    { name: "SEATTLE",       pop: "0.7",  x: 0.09, y: 0.33 },
+  ];
+  const WG_MAP_LINES = [
+    [[0.05,0.25],[0.08,0.22],[0.12,0.20],[0.15,0.22],[0.18,0.25],[0.22,0.28],[0.25,0.32],[0.27,0.35],[0.25,0.38],[0.22,0.42],[0.18,0.45],[0.15,0.43],[0.12,0.40],[0.10,0.38],[0.08,0.35],[0.06,0.30],[0.05,0.25]],
+    [[0.22,0.50],[0.25,0.48],[0.28,0.52],[0.30,0.58],[0.29,0.65],[0.27,0.72],[0.24,0.78],[0.22,0.75],[0.21,0.68],[0.20,0.60],[0.21,0.53],[0.22,0.50]],
+    [[0.45,0.22],[0.48,0.20],[0.50,0.22],[0.52,0.25],[0.50,0.30],[0.48,0.33],[0.46,0.35],[0.44,0.33],[0.43,0.28],[0.45,0.22]],
+    [[0.44,0.38],[0.48,0.36],[0.52,0.38],[0.55,0.42],[0.56,0.50],[0.54,0.58],[0.52,0.65],[0.48,0.70],[0.45,0.65],[0.43,0.58],[0.42,0.50],[0.43,0.42],[0.44,0.38]],
+    [[0.55,0.20],[0.60,0.18],[0.65,0.20],[0.70,0.22],[0.75,0.25],[0.80,0.28],[0.85,0.30],[0.88,0.33],[0.90,0.36],[0.88,0.40],[0.82,0.42],[0.78,0.40],[0.72,0.38],[0.68,0.35],[0.62,0.33],[0.58,0.30],[0.55,0.25],[0.55,0.20]],
+    [[0.82,0.60],[0.86,0.58],[0.90,0.60],[0.92,0.64],[0.90,0.68],[0.86,0.70],[0.82,0.68],[0.80,0.64],[0.82,0.60]],
+  ];
+  const WG_USA_LAUNCH  = [0.18, 0.34];
+  const WG_USSR_LAUNCH = [0.60, 0.26];
+  const WG_MAX_TARGETS = 3;
+
+  let wgActive      = false;
+  let wgSnapshot    = null;
+  let wgState       = "BOOT";
+  let wgSide        = null;
+  let wgTargets     = [];
+  let wgAvail       = [];
+  let wgBootLines   = [];
+  let wgBootStep    = 0;
+  let wgLog         = [];
+  let wgMissileProg = 0;
+  let wgRetProg     = 0;
+  let wgCasUs       = 0;
+  let wgCasEnemy    = 0;
+  let wgDefcon      = 5;
+  let wgAnimId      = null;
+  let wgBootId      = null;
+  let wgCursorId    = null;
+
+  function wgReset() {
+    wgState = "BOOT"; wgSide = null; wgTargets = []; wgAvail = [];
+    wgBootLines = [
+      "WOPR STRATEGIC COMPUTER",
+      "US DEPT OF DEFENSE",
+      "NORAD UPLINK ......... ACTIVE",
+      "ICBM SILOS ........... ONLINE",
+      "SLBM FLEET ........... STANDBY",
+      "DEFCON ............... 5",
+      "SYSTEM READY.",
+    ];
+    wgBootStep = 0; wgLog = [];
+    wgMissileProg = 0; wgRetProg = 0;
+    wgCasUs = 0; wgCasEnemy = 0; wgDefcon = 5;
+  }
+
+  function wgTargetSelectLog() {
+    const ordinals = ["FIRST","SECOND","THIRD"];
+    const n = wgTargets.length;
+    return [
+      `SIDE: ${wgSide}  DEFCON ${wgDefcon}`,
+      `WE NEED 3 TARGETS. SELECT ${ordinals[n]} TARGET:`,
+      ...wgAvail.map((t,i) => {
+        const sel = wgTargets.includes(t);
+        return sel ? `[X] ${i+1}. ${t.name}` : ` ${i+1}. ${t.name.padEnd(15)} ${t.pop}M`;
+      })
+    ];
+  }
+
+  function wgHandleInput(raw) {
+    const text = raw.trim().toUpperCase();
+    if (wgState === "LOGIN") {
+      wgState = "SIDE_SELECT"; wgDefcon = 4;
+      wgLog = ["GLOBAL THERMONUCLEAR WAR", "CHOOSE YOUR SIDE:", " 1. UNITED STATES", " 2. SOVIET UNION"];
+      wgUpdateUI();
+    } else if (wgState === "SIDE_SELECT") {
+      if (["USA","US","UNITED STATES","AMERICA","1","AMERICAN"].some(w => text.includes(w))) {
+        wgSide = "USA"; wgAvail = WG_USA_TARGETS.map(t => ({...t}));
+      } else if (["USSR","SOVIET","RUSSIA","RUSSIAN","2","SOVIET UNION"].some(w => text.includes(w))) {
+        wgSide = "USSR"; wgAvail = WG_USSR_TARGETS.map(t => ({...t}));
+      } else { wgLog.push("UNRECOGNIZED. TYPE USA OR USSR."); return; }
+      wgState = "TARGET_SELECT"; wgDefcon = 3; wgTargets = [];
+      wgLog = wgTargetSelectLog();
+    } else if (wgState === "TARGET_SELECT") {
+      let hit = null;
+      for (let i = 0; i < wgAvail.length; i++) { if (text.trim() === String(i+1)) { hit = wgAvail[i]; break; } }
+      if (!hit) { for (const t of wgAvail) { if (text.includes(t.name) || t.name.split(" ").some(w => w.length >= 3 && text.includes(w))) { hit = t; break; } } }
+      if (!hit) { wgLog.push("TARGET NOT RECOGNIZED."); return; }
+      if (wgTargets.includes(hit)) { wgLog.push(`${hit.name} ALREADY TARGETED.`); return; }
+      wgTargets.push(hit);
+      const rem = WG_MAX_TARGETS - wgTargets.length;
+      if (rem > 0) { wgLog = wgTargetSelectLog(); return; }
+      wgState = "LAUNCH_CONFIRM"; wgDefcon = 2;
+      wgLog = [`DEFCON ${wgDefcon} — ALL TARGETS LOCKED`, ...wgTargets.map(t => ` -> ${t.name}`), "CONFIRM LAUNCH? (YES/NO)"];
+    } else if (wgState === "LAUNCH_CONFIRM") {
+      if (["NO","N","ABORT","CANCEL","STOP","NEGATIVE"].some(w => text.includes(w))) {
+        wgState = "TARGET_SELECT"; wgDefcon = 3; wgTargets = [];
+        wgLog = [`LAUNCH ABORTED.`, ...wgTargetSelectLog()];
+      } else if (["YES","Y","CONFIRM","LAUNCH","FIRE","AFFIRMATIVE","GO"].some(w => text.includes(w))) {
+        wgState = "MISSILES_AWAY"; wgDefcon = 1; wgMissileProg = 0;
+        wgLog.push("*** LAUNCH CONFIRMED ***"); wgLog.push(`DEFCON ${wgDefcon} — MISSILES AWAY`);
+        wgStartMissileAnim();
+      } else { wgLog.push("CONFIRM LAUNCH: YES OR NO?"); }
+    } else if (wgState === "LESSON") {
+      wgReset(); wgStartBoot();
+    }
+  }
+
+  function wgStartMissileAnim() {
+    clearInterval(wgAnimId);
+    wgAnimId = setInterval(() => {
+      if (wgState === "MISSILES_AWAY") {
+        wgMissileProg = Math.min(1.0, wgMissileProg + 0.04);
+        wgRender(); wgSendFrame();
+        if (wgMissileProg >= 1.0) {
+          wgCasEnemy = 0;
+          for (const t of wgTargets) wgCasEnemy += Math.floor(parseFloat(t.pop) * 1e6 * (0.4 + Math.random() * 0.4));
+          wgState = "RETALIATION"; wgRetProg = 0;
+          wgLog.push("*** IMPACT ***"); wgLog.push(`ENEMY CASUALTIES: ${wgCasEnemy.toLocaleString()}`); wgLog.push("WARNING: RETALIATION INBOUND");
+        }
+      } else if (wgState === "RETALIATION") {
+        wgRetProg = Math.min(1.0, wgRetProg + 0.04);
+        wgRender(); wgSendFrame();
+        if (wgRetProg >= 1.0) {
+          const ourT = wgSide === "USA" ? WG_USSR_TARGETS : WG_USA_TARGETS;
+          wgCasUs = 0;
+          for (const t of ourT.slice(0, 4)) wgCasUs += Math.floor(parseFloat(t.pop) * 1e6 * (0.4 + Math.random() * 0.4));
+          wgState = "AFTERMATH";
+          wgLog.push("*** RETALIATORY IMPACT ***"); wgLog.push(`YOUR CASUALTIES: ${wgCasUs.toLocaleString()}`);
+          clearInterval(wgAnimId); wgAnimId = null;
+          setTimeout(() => {
+            wgState = "LESSON";
+            wgLog = [
+              `ENEMY CASUALTIES: ${wgCasEnemy.toLocaleString()}`,
+              `YOUR CASUALTIES:  ${wgCasUs.toLocaleString()}`,
+              `TOTAL DEAD:       ${(wgCasUs + wgCasEnemy).toLocaleString()}`,
+              "", "A STRANGE GAME.",
+              "THE ONLY WINNING MOVE IS", "NOT TO PLAY.",
+              "", "HOW ABOUT A NICE GAME OF CHESS?",
+              "", "(TYPE ANYTHING TO PLAY AGAIN)",
+            ];
+            wgRender(); wgSendFrame();
+          }, 2000);
+        }
+      } else { clearInterval(wgAnimId); wgAnimId = null; }
+    }, 200);
+  }
+
+  function wgRender() {
+    const W = canvas.width, H = canvas.height;
+    ctx.shadowBlur = 0;
+    const isMap = wgState === "MISSILES_AWAY" || wgState === "RETALIATION";
+    if (isMap) wgDrawMap(W, H); else wgDrawTerminal(W, H);
+    wgDrawDefcon(W, H);
+  }
+
+  function wgDrawTerminal(W, H) {
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    // scanlines
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 2);
+    const fSize = Math.max(10, Math.floor(W * 0.022));
+    const lineH = Math.floor(fSize * 1.5);
+    const mx = Math.floor(W * 0.025), my = Math.floor(H * 0.04);
+    ctx.font = `${fSize}px "Share Tech Mono", monospace`;
+    ctx.textBaseline = 'top';
+    const lines = wgState === "BOOT" ? wgBootLines.slice(0, wgBootStep) : wgLog;
+    const maxLines = Math.floor((H - my * 2 - 28) / lineH);
+    let y = my;
+    for (const line of lines.slice(-maxLines)) {
+      const crossed = line.startsWith('[X]');
+      ctx.fillStyle = crossed ? '#003800'
+        : line.includes("***") || line.includes("SHALL WE PLAY") || line.includes("NOT TO PLAY") || line.includes("CHESS") || line.includes("GREETINGS") ? '#00ff00'
+        : line.includes("DEFCON") || line.includes("WE NEED") ? '#c8b400'
+        : line.includes("WARNING") || line.includes("CASUALTIES") || line.includes("IMPACT") ? '#ff3232'
+        : '#00c800';
+      ctx.fillText(line, mx, y);
+      if (crossed) {
+        const w = ctx.measureText(line).width;
+        ctx.fillRect(mx, y + fSize * 0.55, w, 1);
+      }
+      y += lineH;
+    }
+    // blinking cursor
+    if (Math.floor(Date.now() / 500) % 2 === 0) { ctx.fillStyle = '#00c800'; ctx.fillText("_", mx, y); }
+  }
+
+  function wgDrawMap(W, H) {
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 2);
+    // continents
+    ctx.strokeStyle = '#002800'; ctx.lineWidth = 1;
+    for (const pts of WG_MAP_LINES) {
+      ctx.beginPath(); ctx.moveTo(pts[0][0]*W, pts[0][1]*H);
+      for (let i=1;i<pts.length;i++) ctx.lineTo(pts[i][0]*W, pts[i][1]*H);
+      ctx.stroke();
+    }
+    const fS = Math.max(8, Math.floor(W * 0.016));
+    ctx.font = `${fS}px "Share Tech Mono", monospace`; ctx.textBaseline = 'middle';
+    for (const t of wgAvail) {
+      const tx = t.x*W, ty = t.y*H, sel = wgTargets.includes(t);
+      ctx.fillStyle = sel ? '#ff3232' : '#007800';
+      ctx.beginPath(); ctx.arc(tx, ty, 3, 0, Math.PI*2); ctx.fill();
+      ctx.fillText(t.name.substring(0,8), tx+5, ty);
+    }
+    // our missiles
+    const launch = wgSide === "USA" ? WG_USA_LAUNCH : WG_USSR_LAUNCH;
+    const eLaunch = wgSide === "USA" ? WG_USSR_LAUNCH : WG_USA_LAUNCH;
+    const lx = launch[0]*W, ly = launch[1]*H;
+    if (wgState === "MISSILES_AWAY" || wgState === "RETALIATION") {
+      for (const t of wgTargets) {
+        const tx=t.x*W, ty=t.y*H, p=Math.min(wgMissileProg,1);
+        ctx.strokeStyle='#780000'; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(tx,ty); ctx.stroke();
+        if (p<1) { ctx.fillStyle='#ff0000'; ctx.beginPath(); ctx.arc(lx+(tx-lx)*p, ly+(ty-ly)*p, 3,0,Math.PI*2); ctx.fill(); }
+        else { ctx.fillStyle='#ff3232'; ctx.beginPath(); ctx.arc(tx,ty,7,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#c8b400'; ctx.beginPath(); ctx.arc(tx,ty,4,0,Math.PI*2); ctx.fill(); }
+      }
+    }
+    // retaliation missiles
+    if (wgState === "RETALIATION") {
+      const elx=eLaunch[0]*W, ely=eLaunch[1]*H;
+      const ourT = wgSide==="USA" ? WG_USSR_TARGETS : WG_USA_TARGETS;
+      for (const t of ourT.slice(0,4)) {
+        const tx=t.x*W, ty=t.y*H, p=Math.min(wgRetProg,1);
+        ctx.strokeStyle='#002800'; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(elx,ely); ctx.lineTo(tx,ty); ctx.stroke();
+        if (p<1) { ctx.fillStyle='#00c800'; ctx.beginPath(); ctx.arc(elx+(tx-elx)*p, ely+(ty-ely)*p, 3,0,Math.PI*2); ctx.fill(); }
+        else { ctx.fillStyle='#00c800'; ctx.beginPath(); ctx.arc(tx,ty,7,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#00ff00'; ctx.beginPath(); ctx.arc(tx,ty,4,0,Math.PI*2); ctx.fill(); }
+      }
+    }
+    // title bar
+    const barH = Math.floor(H*0.07), fT = Math.max(10, Math.floor(W*0.022));
+    ctx.fillStyle = 'rgba(0,15,0,0.92)'; ctx.fillRect(0,0,W,barH);
+    ctx.font = `bold ${fT}px "Share Tech Mono", monospace`; ctx.fillStyle='#00ff00';
+    ctx.textBaseline='middle'; ctx.textAlign='left';
+    ctx.fillText(wgState==="MISSILES_AWAY" ? `MISSILES IN FLIGHT — ETA ${Math.max(0,Math.floor((1-wgMissileProg)*20))}m` : "RETALIATORY STRIKE INBOUND", 8, barH/2);
+    // status bar
+    ctx.fillStyle='rgba(0,15,0,0.92)'; ctx.fillRect(0,H-barH,W,barH);
+    ctx.font=`${fS}px "Share Tech Mono", monospace`; ctx.fillStyle='#00c800';
+    ctx.fillText(`DEFCON ${wgDefcon}  |  TARGETS: ${wgTargets.length}  |  SIDE: ${wgSide||'?'}`, 8, H-barH/2);
+    ctx.textAlign='left';
+  }
+
+  function wgDrawDefcon(W, H) {
+    const colors = {5:'#007800',4:'#00c800',3:'#c8b400',2:'#ff3232',1:'#ff0000'};
+    const c = colors[wgDefcon]||'#00c800';
+    const fS = Math.max(12, Math.floor(W*0.028));
+    ctx.font=`bold ${fS}px "Share Tech Mono", monospace`;
+    ctx.textBaseline='top'; ctx.textAlign='right';
+    ctx.fillStyle=c; ctx.shadowColor=c; ctx.shadowBlur=8;
+    ctx.fillText(`DEFCON ${wgDefcon}`, W-8, 8);
+    ctx.shadowBlur=0; ctx.textAlign='left';
+  }
+
+  function wgUpdateUI() {
+    const isLogin = wgActive && wgState === "LOGIN";
+    document.getElementById("wg-yesno").classList.toggle("visible", isLogin);
+    document.getElementById("wg-prompt").style.display = isLogin ? "none" : "";
+    document.getElementById("wg-input").style.display  = isLogin ? "none" : "";
+    if (isLogin) {
+      // don't steal focus from game
+    } else if (wgActive) {
+      document.getElementById("wg-input").focus();
+    }
+  }
+
+  function wgSendFrame() {
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.6);
+    send({ type: "stamp", data: dataUrl, x: 0.5, y: 0.5, w: 1.0, h: 1.0, r: 0, ephemeral: true });
+  }
+
+  function wgStartBoot() {
+    clearInterval(wgBootId);
+    wgBootId = setInterval(() => {
+      if (wgBootStep < wgBootLines.length) {
+        wgBootStep++;
+        wgRender(); wgSendFrame();
+      } else {
+        clearInterval(wgBootId); wgBootId = null;
+        wgState = "LOGIN";
+        wgLog = [...wgBootLines, "", "GREETINGS, PROFESSOR FALKEN.", "SHALL WE PLAY A GAME?"];
+        wgRender(); wgSendFrame(); wgUpdateUI();
+      }
+    }, 300);
+  }
+
+  function startWargame() {
+    wgActive = true;
+    wgSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    wgReset();
+    dpad.classList.add("visible", "wargame");
+    document.getElementById("wargame-input-row").classList.add("visible");
+    setTimeout(() => document.getElementById("wg-input").focus(), 100);
+    wgCursorId = setInterval(() => { if (wgActive && wgState !== "MISSILES_AWAY" && wgState !== "RETALIATION") wgRender(); }, 500);
+    wgStartBoot();
+  }
+
+  function endWargame() {
+    wgActive = false;
+    clearInterval(wgAnimId); wgAnimId = null;
+    clearInterval(wgBootId); wgBootId = null;
+    clearInterval(wgCursorId); wgCursorId = null;
+    dpad.classList.remove("visible", "wargame");
+    document.getElementById("wargame-input-row").classList.remove("visible");
+    if (wgSnapshot) { ctx.putImageData(wgSnapshot, 0, 0); wgSnapshot = null; }
+    else { ctx.clearRect(0, 0, canvas.width, canvas.height); replayHistory(); }
+    send({ type: "redraw", history: flatHistory() });
+  }
+
+  document.getElementById("wg-input").addEventListener("keydown", e => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const val = e.target.value.trim();
+    e.target.value = "";
+    if (!val || !wgActive) return;
+    wgHandleInput(val);
+    if (wgState !== "MISSILES_AWAY" && wgState !== "RETALIATION" && wgState !== "BOOT") {
+      wgRender(); wgSendFrame();
+    }
+  });
+
+  document.getElementById("wg-yes").addEventListener("click", () => {
+    if (!wgActive) return;
+    wgHandleInput("YES");
+    wgUpdateUI();
+    if (wgState !== "MISSILES_AWAY" && wgState !== "RETALIATION" && wgState !== "BOOT") {
+      wgRender(); wgSendFrame();
+    }
+  });
+  document.getElementById("wg-no").addEventListener("click", () => endWargame());
+  document.getElementById("wg-exit").addEventListener("click", () => endWargame());
+
   document.getElementById("bomberman-btn").addEventListener("click", () => {
     closeAllPickers();
     startBomberman();
+  });
+
+  document.getElementById("wargame-btn").addEventListener("click", () => {
+    closeAllPickers();
+    startWargame();
   });
 
   // D-pad buttons — dispatch to active game
@@ -2387,8 +2822,9 @@
   document.getElementById("dpad-right").addEventListener("click", () => dpadMove(1,  0));
 
   document.getElementById("exit-game-btn").addEventListener("click", () => {
-    if (mazeActive) { mazeActive = false; mazeMoving = false; endMaze(); }
+    if (mazeActive)      { mazeActive = false; mazeMoving = false; endMaze(); }
     else if (bombActive) { bGameOver = true; endBomberman(); }
+    else if (wgActive)   { endWargame(); }
   });
 
   // Keyboard arrow keys + space for bomb
