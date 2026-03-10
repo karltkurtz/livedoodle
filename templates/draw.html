@@ -2634,6 +2634,108 @@
   }
   // --- End Maze Audio ---
 
+  // --- WARGAME Audio ---
+  function sndWgBoot() {
+    // Single CRT-terminal beep per boot line
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.connect(gain); gain.connect(ac.destination);
+      osc.type = 'square';
+      osc.frequency.value = 440;
+      gain.gain.setValueAtTime(0.07, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+      osc.start(t); osc.stop(t + 0.06);
+    } catch(e) {}
+  }
+
+  function sndWgTarget() {
+    // Short two-note confirm blip on target locked
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      [[660, 0], [880, 0.07]].forEach(([f, d]) => {
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.connect(gain); gain.connect(ac.destination);
+        osc.type = 'square';
+        osc.frequency.value = f;
+        gain.gain.setValueAtTime(0.12, t + d);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + d + 0.06);
+        osc.start(t + d); osc.stop(t + d + 0.08);
+      });
+    } catch(e) {}
+  }
+
+  function sndWgLaunch() {
+    // Rising alarm siren on launch confirmation
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.connect(gain); gain.connect(ac.destination);
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(200, t);
+      osc.frequency.linearRampToValueAtTime(800, t + 0.6);
+      osc.frequency.linearRampToValueAtTime(200, t + 1.2);
+      osc.frequency.linearRampToValueAtTime(800, t + 1.8);
+      gain.gain.setValueAtTime(0.25, t);
+      gain.gain.setValueAtTime(0.25, t + 1.8);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 2.0);
+      osc.start(t); osc.stop(t + 2.1);
+    } catch(e) {}
+  }
+
+  function sndWgImpact() {
+    // Heavy explosion + low rumble
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      // noise burst
+      const buf = ac.createBuffer(1, ac.sampleRate * 0.6, ac.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1);
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const filt = ac.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 400;
+      const gain = ac.createGain();
+      src.connect(filt); filt.connect(gain); gain.connect(ac.destination);
+      gain.gain.setValueAtTime(1.0, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+      src.start(t); src.stop(t + 0.65);
+      // low tone thud
+      const osc = ac.createOscillator();
+      const og = ac.createGain();
+      osc.connect(og); og.connect(ac.destination);
+      osc.type = 'sine'; osc.frequency.setValueAtTime(60, t);
+      osc.frequency.exponentialRampToValueAtTime(30, t + 0.5);
+      og.gain.setValueAtTime(0.6, t);
+      og.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+      osc.start(t); osc.stop(t + 0.55);
+    } catch(e) {}
+  }
+
+  function sndWgLesson() {
+    // Slow, mournful descending minor sequence
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      const notes = [392, 370, 349, 311, 294, 262];
+      const durs  = [0.3,  0.3,  0.3,  0.4,  0.3,  0.8];
+      let offset = 0;
+      notes.forEach((f, i) => {
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.connect(gain); gain.connect(ac.destination);
+        osc.type = 'sine';
+        osc.frequency.value = f;
+        const s = t + offset;
+        gain.gain.setValueAtTime(0.18, s);
+        gain.gain.exponentialRampToValueAtTime(0.001, s + durs[i]);
+        osc.start(s); osc.stop(s + durs[i] + 0.05);
+        offset += durs[i];
+      });
+    } catch(e) {}
+  }
+  // --- End WARGAME Audio ---
+
   function startBomberman() {
     bombActive = true; bGameOver = false; bGameWon = false;
     bSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -2810,6 +2912,7 @@
       if (!hit) { wgLog.push("TARGET NOT RECOGNIZED."); return; }
       if (wgTargets.includes(hit)) { wgLog.push(`${hit.name} ALREADY TARGETED.`); return; }
       wgTargets.push(hit);
+      sndWgTarget();
       const rem = WG_MAX_TARGETS - wgTargets.length;
       if (rem > 0) { wgLog = wgTargetSelectLog(); return; }
       wgState = "LAUNCH_CONFIRM"; wgDefcon = 2;
@@ -2821,6 +2924,7 @@
       } else if (["YES","Y","CONFIRM","LAUNCH","FIRE","AFFIRMATIVE","GO"].some(w => text.includes(w))) {
         wgState = "MISSILES_AWAY"; wgDefcon = 1; wgMissileProg = 0;
         wgLog.push("*** LAUNCH CONFIRMED ***"); wgLog.push(`DEFCON ${wgDefcon} — MISSILES AWAY`);
+        sndWgLaunch();
         wgStartMissileAnim();
       } else { wgLog.push("CONFIRM LAUNCH: YES OR NO?"); }
     } else if (wgState === "LESSON") {
@@ -2838,6 +2942,7 @@
           wgCasEnemy = 0;
           for (const t of wgTargets) wgCasEnemy += Math.floor(parseFloat(t.pop) * 1e6 * (0.4 + Math.random() * 0.4));
           wgState = "RETALIATION"; wgRetProg = 0;
+          sndWgImpact();
           wgLog.push("*** IMPACT ***"); wgLog.push(`ENEMY CASUALTIES: ${wgCasEnemy.toLocaleString()}`); wgLog.push("WARNING: RETALIATION INBOUND");
         }
       } else if (wgState === "RETALIATION") {
@@ -2848,10 +2953,12 @@
           wgCasUs = 0;
           for (const t of ourT.slice(0, 4)) wgCasUs += Math.floor(parseFloat(t.pop) * 1e6 * (0.4 + Math.random() * 0.4));
           wgState = "AFTERMATH";
+          sndWgImpact();
           wgLog.push("*** RETALIATORY IMPACT ***"); wgLog.push(`YOUR CASUALTIES: ${wgCasUs.toLocaleString()}`);
           clearInterval(wgAnimId); wgAnimId = null;
           setTimeout(() => {
             wgState = "LESSON";
+            sndWgLesson();
             wgLog = [
               `ENEMY CASUALTIES: ${wgCasEnemy.toLocaleString()}`,
               `YOUR CASUALTIES:  ${wgCasUs.toLocaleString()}`,
@@ -3023,6 +3130,7 @@
     wgBootId = setInterval(() => {
       if (wgBootStep < wgBootLines.length) {
         wgBootStep++;
+        sndWgBoot();
         wgRender(); wgSendFrame();
       } else {
         clearInterval(wgBootId); wgBootId = null;
