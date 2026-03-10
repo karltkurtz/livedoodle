@@ -250,6 +250,228 @@
 
     #quotes-toggle-btn.open { box-shadow: 0 0 14px rgba(255,74,42,0.6); }
 
+    @keyframes games-pulse {
+      0%, 100% { box-shadow: 0 0 6px rgba(191,95,255,0.3); border-color: var(--purple); }
+      50%       { box-shadow: 0 0 18px rgba(191,95,255,0.9), 0 0 30px rgba(191,95,255,0.3); border-color: #d88fff; }
+    }
+
+    #games-toggle-btn {
+      border-color: var(--purple);
+      color: var(--purple);
+      box-shadow: 0 0 8px rgba(191,95,255,0.3);
+      width: 72px;
+      position: relative;
+      animation: games-pulse 1.8s ease-in-out infinite;
+    }
+
+    #games-toggle-btn.open {
+      animation: none;
+      box-shadow: 0 0 14px rgba(191,95,255,0.6);
+    }
+
+    #games-toggle-btn::after {
+      content: 'NEW';
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: var(--coral);
+      color: #fff;
+      font-size: 7px;
+      letter-spacing: 0.05em;
+      padding: 1px 3px;
+      line-height: 1.4;
+      animation: blink 1s step-end infinite;
+    }
+
+    #games-toggle-btn.open::after { display: none; }
+
+    #dpad {
+      display: none;
+      justify-content: center;
+      align-items: center;
+      gap: 24px;
+      padding: 8px 0 4px;
+      background: #0a0a0a;
+      margin-top: -40px;
+    }
+    #dpad.visible { display: flex; }
+
+    #exit-game-btn {
+      border-color: #5a1a1a;
+      color: #7a2a2a;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      padding: 6px 12px;
+      align-self: center;
+      margin-left: 20px;
+      margin-top: -20px;
+    }
+    #exit-game-btn:hover {
+      border-color: var(--coral);
+      color: var(--coral);
+      box-shadow: 0 0 8px rgba(255,74,42,0.3);
+    }
+
+    #dpad-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 44px);
+      grid-template-rows: repeat(3, 44px);
+      gap: 3px;
+    }
+
+    .dpad-btn {
+      width: 44px;
+      height: 44px;
+      background: #111;
+      border: 1px solid #333;
+      color: #888;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: background 0.1s, border-color 0.1s, color 0.1s;
+    }
+    .dpad-btn:active, .dpad-btn.pressed {
+      background: #1a1a1a;
+      border-color: var(--teal);
+      color: var(--teal);
+      box-shadow: 0 0 8px rgba(0,229,255,0.4);
+    }
+    .dpad-center {
+      background: #0f0f0f;
+      border-color: #222;
+      cursor: default;
+    }
+
+    #maze-win-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.75);
+    }
+    #maze-win-overlay.visible { display: flex; }
+
+    @keyframes maze-win-pop {
+      0%   { transform: scale(0.6); opacity: 0; }
+      60%  { transform: scale(1.08); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    #maze-win-box {
+      text-align: center;
+      animation: maze-win-pop 0.4s ease-out forwards;
+    }
+
+    #maze-win-title {
+      font-size: clamp(48px, 12vw, 80px);
+      color: var(--green);
+      letter-spacing: 0.2em;
+      text-shadow: 0 0 30px rgba(57,255,20,0.8), 0 0 60px rgba(57,255,20,0.4);
+    }
+
+    #maze-win-sub {
+      font-size: 13px;
+      color: #555;
+      letter-spacing: 0.25em;
+      margin-top: 16px;
+    }
+
+    @keyframes toast-in-out {
+      0%   { opacity: 0; transform: translateY(6px); }
+      12%  { opacity: 1; transform: translateY(0); }
+      80%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    #game-toast {
+      display: none;
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #111;
+      border: 1px solid var(--coral);
+      color: var(--coral);
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      padding: 10px 18px;
+      z-index: 200;
+      white-space: nowrap;
+      box-shadow: 0 0 12px rgba(255,74,42,0.3);
+    }
+    #game-toast.visible {
+      display: block;
+      animation: toast-in-out 3s ease forwards;
+    }
+
+    .game-btn {
+      border-color: var(--teal);
+      color: var(--teal);
+      box-shadow: 0 0 6px rgba(0,229,255,0.25);
+      width: 120px;
+    }
+    .game-btn:hover { box-shadow: 0 0 14px rgba(0,229,255,0.6); }
+
+    #bomb-btn {
+      display: none;
+      border: 1px solid var(--coral);
+      color: var(--coral);
+      background: #0f0f0f;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 14px;
+      letter-spacing: 0.12em;
+      padding: 0 16px;
+      height: 44px;
+      cursor: pointer;
+      width: 100px;
+      box-shadow: 0 0 6px rgba(255,74,42,0.2);
+    }
+    #bomb-btn.visible { display: block; }
+    #bomb-btn:active {
+      background: #1a0800;
+      border-color: #ff7a5a;
+      box-shadow: 0 0 12px rgba(255,74,42,0.6);
+    }
+
+    #bomber-win-overlay, #bomber-over-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.75);
+    }
+    #bomber-win-overlay.visible { display: flex; }
+    #bomber-over-overlay.visible { display: flex; }
+    #bomber-win-box, #bomber-over-box {
+      text-align: center;
+      animation: maze-win-pop 0.4s ease-out forwards;
+    }
+    #bomber-win-title {
+      font-size: clamp(48px, 12vw, 80px);
+      color: var(--green);
+      text-shadow: 0 0 20px rgba(57,255,20,0.4);
+    }
+    #bomber-over-title {
+      font-size: clamp(48px, 12vw, 80px);
+      color: var(--coral);
+      text-shadow: 0 0 20px rgba(255,74,42,0.4);
+    }
+    #bomber-win-sub, #bomber-over-sub {
+      font-size: 13px;
+      color: #555;
+      margin-top: 12px;
+      letter-spacing: 0.15em;
+    }
+
     .quote-btn {
       font-size: 9px;
       padding: 7px 10px;
@@ -686,6 +908,48 @@
   </div>
 </div>
 
+<div id="dpad">
+  <div id="dpad-grid">
+    <div></div>
+    <button class="dpad-btn" id="dpad-up">▲</button>
+    <div></div>
+    <button class="dpad-btn" id="dpad-left">◀</button>
+    <div class="dpad-btn dpad-center"></div>
+    <button class="dpad-btn" id="dpad-right">▶</button>
+    <div></div>
+    <button class="dpad-btn" id="dpad-down">▼</button>
+    <div></div>
+  </div>
+  <button id="bomb-btn">BOMB</button>
+  <button id="exit-game-btn">EXIT GAME</button>
+</div>
+
+<!-- Maze win overlay -->
+<div id="maze-win-overlay">
+  <div id="maze-win-box">
+    <div id="maze-win-title">YOU WIN!</div>
+    <div id="maze-win-sub">RETURNING IN <span id="maze-win-count">5</span>...</div>
+  </div>
+</div>
+
+<!-- Bomberman win overlay -->
+<div id="bomber-win-overlay">
+  <div id="bomber-win-box">
+    <div id="bomber-win-title">YOU WIN!</div>
+    <div id="bomber-win-sub">RETURNING IN <span id="bomber-win-count">5</span>...</div>
+  </div>
+</div>
+
+<!-- Bomberman game over overlay -->
+<div id="bomber-over-overlay">
+  <div id="bomber-over-box">
+    <div id="bomber-over-title">GAME OVER</div>
+    <div id="bomber-over-sub">RETURNING IN <span id="bomber-over-count">4</span>...</div>
+  </div>
+</div>
+
+<div id="game-toast"></div>
+
 <div id="toolbar">
   <div id="brand">
     <div id="brand-left">
@@ -707,6 +971,7 @@
       <button id="brush-toggle-btn">BRUSH</button>
       <button id="emoji-toggle-btn">EMOJI</button>
       <button id="quotes-toggle-btn">QUOTES</button>
+      <button id="games-toggle-btn">GAMES</button>
     </div>
     <div id="brush-picker">
       <button class="brush-mode-btn active" data-mode="solid">SOLID</button>
@@ -837,6 +1102,28 @@
       <button class="quote-btn">YOU GOT THIS</button>
       <button class="quote-btn">GOOD VIBES ONLY</button>
       <button class="quote-btn">MAKE IT HAPPEN</button>
+    </div>
+  </div>
+</div>
+
+<!-- Games picker overlay -->
+<div class="picker-overlay" id="games-picker-overlay">
+  <div class="picker-panel" style="border:1px solid var(--purple);box-shadow:0 0 18px rgba(191,95,255,0.3);">
+    <div class="picker-panel-title" style="color:var(--purple);">GAMES</div>
+    <div class="picker-panel-items" style="flex-direction:column;gap:4px;">
+      <button class="game-btn" id="maze-btn">MAZE</button>
+      <button class="game-btn" id="bomberman-btn" style="border-color:var(--coral);color:var(--coral);box-shadow:0 0 6px rgba(255,74,42,0.25);">BOMBERMAN</button>
+    </div>
+  </div>
+</div>
+
+<!-- Maze difficulty overlay -->
+<div class="picker-overlay" id="maze-difficulty-overlay">
+  <div class="picker-panel" style="border:1px solid var(--teal);box-shadow:0 0 18px rgba(0,229,255,0.3);">
+    <div class="picker-panel-title" style="color:var(--teal);">DIFFICULTY</div>
+    <div class="picker-panel-items" style="flex-direction:column;gap:4px;">
+      <button class="game-btn" id="maze-easy-btn">EASY</button>
+      <button class="game-btn" id="maze-hard-btn" style="border-color:var(--coral);color:var(--coral);box-shadow:0 0 6px rgba(255,74,42,0.25);">HARD</button>
     </div>
   </div>
 </div>
@@ -1095,6 +1382,7 @@
   const toolbar       = document.getElementById("toolbar");
 
   function startDraw(x, y) {
+    if (mazeActive || bombActive) return;
     if (stampOverlay.classList.contains("active")) return;
     if (isFilling) {
       const color = getColor();
@@ -1426,6 +1714,8 @@
   const emojiPickerOverlay  = document.getElementById("emoji-picker-overlay");
   const quotesToggleBtn     = document.getElementById("quotes-toggle-btn");
   const quotesPickerOverlay = document.getElementById("quotes-picker-overlay");
+  const gamesToggleBtn      = document.getElementById("games-toggle-btn");
+  const gamesPickerOverlay  = document.getElementById("games-picker-overlay");
 
   function closeAllPickers() {
     shapePickerOverlay.classList.remove("visible");
@@ -1436,6 +1726,8 @@
     emojiToggleBtn.classList.remove("open");
     quotesPickerOverlay.classList.remove("visible");
     quotesToggleBtn.classList.remove("open");
+    gamesPickerOverlay.classList.remove("visible");
+    gamesToggleBtn.classList.remove("open");
   }
 
   shapeToggleBtn.addEventListener("click", () => {
@@ -1471,6 +1763,641 @@
     const wasOpen = quotesPickerOverlay.classList.contains("visible");
     closeAllPickers();
     if (!wasOpen) { quotesPickerOverlay.classList.add("visible"); quotesToggleBtn.classList.add("open"); }
+  });
+
+  gamesToggleBtn.addEventListener("click", () => {
+    const wasOpen = gamesPickerOverlay.classList.contains("visible");
+    closeAllPickers();
+    if (!wasOpen) { gamesPickerOverlay.classList.add("visible"); gamesToggleBtn.classList.add("open"); }
+  });
+
+  gamesPickerOverlay.addEventListener("click", e => {
+    if (e.target === gamesPickerOverlay) closeAllPickers();
+  });
+
+  const dpad = document.getElementById("dpad");
+
+  // ── Maze game ──
+  const mazeWinOverlay = document.getElementById("maze-win-overlay");
+  const mazeWinCount   = document.getElementById("maze-win-count");
+  let mazeActive = false;
+  let mazeGrid = [], mazeCols = 0, mazeRows = 0, mazeCellSize = 0;
+  let ballCol = 1, ballRow = 1, exitCol = 0, exitRow = 0;
+  let mazeSnapshot = null;
+
+  function generateMaze(cols, rows) {
+    const grid = Array.from({ length: rows }, () => Array(cols).fill(1));
+    function carve(c, r) {
+      grid[r][c] = 0;
+      const dirs = [[0,-2],[0,2],[-2,0],[2,0]].sort(() => Math.random() - 0.5);
+      for (const [dc, dr] of dirs) {
+        const nc = c + dc, nr = r + dr;
+        if (nr > 0 && nr < rows && nc > 0 && nc < cols && grid[nr][nc] === 1) {
+          grid[r + dr/2][c + dc/2] = 0;
+          carve(nc, nr);
+        }
+      }
+    }
+    carve(1, 1);
+    return grid;
+  }
+
+  function sendMazeFrame() {
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+    send({ type: "stamp", data: dataUrl, x: 0.5, y: 0.5, w: 1.0, h: 1.0, r: 0, ephemeral: true });
+  }
+
+  function drawMazeFrame() {
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Walls
+    ctx.fillStyle = '#00e5ff';
+    for (let r = 0; r < mazeRows; r++) {
+      for (let c = 0; c < mazeCols; c++) {
+        if (mazeGrid[r][c] === 1) {
+          ctx.fillRect(c * mazeCellSize, r * mazeCellSize, mazeCellSize, mazeCellSize);
+        }
+      }
+    }
+    // Exit — glowing green square
+    const ex = exitCol * mazeCellSize, ey = exitRow * mazeCellSize, cs = mazeCellSize;
+    ctx.fillStyle = '#39ff14';
+    ctx.fillRect(ex + 3, ey + 3, cs - 6, cs - 6);
+    ctx.fillStyle = '#0a0a0a';
+    ctx.font = `bold ${Math.max(7, cs * 0.28)}px "Share Tech Mono", monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('EXIT', ex + cs / 2, ey + cs / 2);
+    // Ball — amber circle
+    ctx.fillStyle = '#ffb300';
+    ctx.shadowColor = 'rgba(255,179,0,0.7)';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(
+      ballCol * mazeCellSize + mazeCellSize / 2,
+      ballRow * mazeCellSize + mazeCellSize / 2,
+      mazeCellSize * 0.32, 0, Math.PI * 2
+    );
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  function startMaze(difficulty = "easy") {
+    mazeActive = true;
+    mazeSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const divW = difficulty === "hard" ? 35 : 15;
+    const divH = difficulty === "hard" ? 21 : 9;
+    mazeCellSize = Math.floor(Math.min(canvas.width / divW, canvas.height / divH));
+    mazeCols = Math.floor(canvas.width  / mazeCellSize);
+    mazeRows = Math.floor(canvas.height / mazeCellSize);
+    if (mazeCols % 2 === 0) mazeCols--;
+    if (mazeRows % 2 === 0) mazeRows--;
+    mazeGrid = generateMaze(mazeCols, mazeRows);
+    ballCol = 1; ballRow = 1;
+    exitCol = mazeCols - 2; exitRow = mazeRows - 2;
+    drawMazeFrame();
+    sendMazeFrame();
+  }
+
+  let mazeMoving = false;
+
+  function moveBall(dc, dr) {
+    if (!mazeActive || mazeMoving) return;
+
+    function canPass(c, r) {
+      return r >= 0 && r < mazeRows && c >= 0 && c < mazeCols && mazeGrid[r][c] === 0;
+    }
+
+    function hasPerp(c, r) {
+      // Check directions perpendicular to (dc, dr)
+      if (dc !== 0) return canPass(c, r - 1) || canPass(c, r + 1);
+      return canPass(c - 1, r) || canPass(c + 1, r);
+    }
+
+    function step() {
+      const nc = ballCol + dc, nr = ballRow + dr;
+      if (!canPass(nc, nr)) { mazeMoving = false; return; }
+
+      ballCol = nc; ballRow = nr;
+      drawMazeFrame();
+      sendMazeFrame();
+
+      if (ballCol === exitCol && ballRow === exitRow) { mazeMoving = false; mazeWin(); return; }
+
+      // Stop at intersections (perpendicular exit available) or dead ends
+      const canContinue = canPass(ballCol + dc, ballRow + dr);
+      if (!canContinue || hasPerp(ballCol, ballRow)) {
+        mazeMoving = false;
+      } else {
+        setTimeout(step, 70);
+      }
+    }
+
+    mazeMoving = true;
+    step();
+  }
+
+  function drawWinFrame(n) {
+    ctx.fillStyle = 'rgba(0,0,0,0.82)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // YOU WIN!
+    ctx.font = `bold ${Math.floor(canvas.width * 0.12)}px "Share Tech Mono", monospace`;
+    ctx.fillStyle = '#39ff14';
+    ctx.shadowColor = 'rgba(57,255,20,0.35)';
+    ctx.shadowBlur = 14;
+    ctx.fillText('YOU WIN!', canvas.width / 2, canvas.height * 0.44);
+    // Countdown
+    ctx.font = `${Math.floor(canvas.width * 0.04)}px "Share Tech Mono", monospace`;
+    ctx.fillStyle = '#555';
+    ctx.shadowBlur = 0;
+    ctx.fillText(`RETURNING IN ${n}...`, canvas.width / 2, canvas.height * 0.62);
+    sendMazeFrame();
+  }
+
+  function mazeWin() {
+    mazeActive = false;
+    let n = 5;
+    drawWinFrame(n);
+    const tick = setInterval(() => {
+      n--;
+      drawWinFrame(n);
+      if (n <= 0) {
+        clearInterval(tick);
+        endMaze();
+      }
+    }, 1000);
+  }
+
+  function endMaze() {
+    dpad.classList.remove("visible");
+    if (mazeSnapshot) { ctx.putImageData(mazeSnapshot, 0, 0); mazeSnapshot = null; }
+    else { ctx.clearRect(0, 0, canvas.width, canvas.height); replayHistory(); }
+    // Resync display with real artwork history
+    send({ type: "redraw", history: flatHistory() });
+  }
+
+  const mazeDifficultyOverlay = document.getElementById("maze-difficulty-overlay");
+
+  document.getElementById("maze-btn").addEventListener("click", () => {
+    closeAllPickers();
+    mazeDifficultyOverlay.classList.add("visible");
+  });
+
+  mazeDifficultyOverlay.addEventListener("click", e => {
+    if (e.target === mazeDifficultyOverlay) mazeDifficultyOverlay.classList.remove("visible");
+  });
+
+  document.getElementById("maze-easy-btn").addEventListener("click", () => {
+    mazeDifficultyOverlay.classList.remove("visible");
+    dpad.classList.add("visible");
+    startMaze("easy");
+  });
+
+  document.getElementById("maze-hard-btn").addEventListener("click", () => {
+    mazeDifficultyOverlay.classList.remove("visible");
+    dpad.classList.add("visible");
+    startMaze("hard");
+  });
+
+  const gameToast = document.getElementById("game-toast");
+  let gameToastTimer = null;
+  function showGameToast(msg) {
+    gameToast.textContent = msg;
+    gameToast.classList.remove("visible");
+    void gameToast.offsetWidth; // reflow to restart animation
+    gameToast.classList.add("visible");
+    clearTimeout(gameToastTimer);
+    gameToastTimer = setTimeout(() => gameToast.classList.remove("visible"), 3000);
+  }
+
+  // ── Bomberman game ──
+  const BOMB_FUSE     = 2500;  // ms until explosion
+  const FLAME_LIFE    = 550;   // ms flames last
+
+  let bombActive  = false;
+  let bGrid       = [];
+  let bCols = 0, bRows = 0, bCellSize = 0, bOffX = 0, bOffY = 0;
+  let bPlayerCol  = 1, bPlayerRow = 1;
+  let bBombs      = [];  // {col, row, placeTime, timerId}
+  let bFlames     = [];  // {col, row, expireAt}
+  let bHiddenPowerups = {}; // "col,row" → "bombs"|"flame"
+  let bMaxBombs   = 1;
+  let bBombRange  = 3;
+  let bExitCol    = 0, bExitRow = 0, bExitRevealed = false;
+  let bGameOver   = false, bGameWon = false;
+  let bSnapshot   = null;
+  let bLoopId     = null;
+
+  function bGenGrid(cols, rows) {
+    const g = [];
+    for (let r = 0; r < rows; r++) {
+      g[r] = [];
+      for (let c = 0; c < cols; c++) {
+        if (c % 2 === 0 && r % 2 === 0) {
+          g[r][c] = 1; // indestructible
+        } else {
+          // safe zone around player start: (1,1),(2,1),(1,2)
+          const safe = (c <= 2 && r <= 1) || (c <= 1 && r <= 2);
+          g[r][c] = (!safe && Math.random() < 0.65) ? 2 : 0;
+        }
+      }
+    }
+    // Place hidden exit under a soft block near far corner
+    bExitCol = cols - 2; bExitRow = rows - 2;
+    if (g[bExitRow][bExitCol] === 1) {
+      // find nearest non-wall cell from far corner
+      outer: for (let d = 1; d < cols + rows; d++) {
+        for (let dr = 0; dr <= d; dr++) {
+          const dc = d - dr;
+          const cc = cols - 1 - dc, rr = rows - 1 - dr;
+          if (cc >= 0 && rr >= 0 && g[rr][cc] !== 1) {
+            bExitCol = cc; bExitRow = rr; break outer;
+          }
+        }
+      }
+    }
+    g[bExitRow][bExitCol] = 2; // ensure it's a soft block
+    bExitRevealed = false;
+    // Assign hidden powerups to ~25% of soft blocks (not the exit block)
+    bHiddenPowerups = {};
+    const types = ["bombs", "flame"];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (g[r][c] === 2 && !(c === bExitCol && r === bExitRow) && Math.random() < 0.25) {
+          bHiddenPowerups[`${c},${r}`] = types[Math.random() < 0.5 ? 0 : 1];
+        }
+      }
+    }
+    return g;
+  }
+
+  function bSolid(c, r) {
+    if (c < 0 || r < 0 || c >= bCols || r >= bRows) return true;
+    return bGrid[r][c] === 1 || bGrid[r][c] === 2;
+  }
+
+  function bHasBomb(c, r) { return bBombs.some(b => b.col === c && b.row === r); }
+
+  function drawBombFrame() {
+    const cs = bCellSize, ox = bOffX, oy = bOffY;
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const now = Date.now();
+
+    for (let r = 0; r < bRows; r++) {
+      for (let c = 0; c < bCols; c++) {
+        const x = ox + c * cs, y = oy + r * cs, cell = bGrid[r][c];
+        if (cell === 1) {
+          // indestructible wall
+          ctx.fillStyle = '#002233';
+          ctx.fillRect(x, y, cs, cs);
+          ctx.fillStyle = '#003344';
+          ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
+          ctx.strokeStyle = '#00e5ff';
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(x + 2, y + 2, cs - 4, cs - 4);
+        } else {
+          // floor
+          ctx.fillStyle = '#111';
+          ctx.fillRect(x, y, cs, cs);
+          ctx.strokeStyle = '#1a1a1a';
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(x, y, cs, cs);
+          if (cell === 2) {
+            // soft block — amber brick
+            ctx.fillStyle = '#4a2800';
+            ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
+            ctx.strokeStyle = '#ffb300';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x + 2, y + 2, cs - 4, cs - 4);
+            // mortar lines
+            ctx.strokeStyle = '#2a1500';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(x + 1, y + cs * 0.5); ctx.lineTo(x + cs - 1, y + cs * 0.5);
+            ctx.moveTo(x + cs * 0.5, y + 1); ctx.lineTo(x + cs * 0.5, y + cs * 0.5);
+            ctx.stroke();
+          } else if (cell === 4) {
+            // revealed exit
+            ctx.fillStyle = '#001a00';
+            ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
+            ctx.fillStyle = '#39ff14';
+            ctx.fillRect(x + 4, y + 4, cs - 8, cs - 8);
+            ctx.shadowColor = 'rgba(57,255,20,0.6)';
+            ctx.shadowBlur = 6;
+            ctx.fillStyle = '#39ff14';
+            ctx.font = `bold ${Math.floor(cs * 0.45)}px "Share Tech Mono", monospace`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('▶', x + cs / 2, y + cs / 2);
+            ctx.shadowBlur = 0;
+          } else if (cell === 5) {
+            // +BOMBS powerup — amber
+            ctx.fillStyle = '#1a0e00';
+            ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
+            ctx.strokeStyle = '#ffb300';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x + 2, y + 2, cs - 4, cs - 4);
+            ctx.shadowColor = 'rgba(255,179,0,0.7)';
+            ctx.shadowBlur = 6;
+            ctx.fillStyle = '#ffb300';
+            ctx.font = `bold ${Math.floor(cs * 0.52)}px "Share Tech Mono", monospace`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('+B', x + cs / 2, y + cs / 2);
+            ctx.shadowBlur = 0;
+          } else if (cell === 6) {
+            // +FLAME powerup — coral
+            ctx.fillStyle = '#1a0500';
+            ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
+            ctx.strokeStyle = '#ff4a2a';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x + 2, y + 2, cs - 4, cs - 4);
+            ctx.shadowColor = 'rgba(255,74,42,0.7)';
+            ctx.shadowBlur = 6;
+            ctx.fillStyle = '#ff4a2a';
+            ctx.font = `bold ${Math.floor(cs * 0.52)}px "Share Tech Mono", monospace`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('+F', x + cs / 2, y + cs / 2);
+            ctx.shadowBlur = 0;
+          }
+        }
+      }
+    }
+
+    // flames
+    for (const f of bFlames) {
+      if (f.expireAt <= now) continue;
+      const x = ox + f.col * cs, y = oy + f.row * cs;
+      const t = 1 - (f.expireAt - now) / FLAME_LIFE;
+      ctx.fillStyle = t < 0.4 ? 'rgba(255,220,60,0.92)' : 'rgba(255,74,42,0.88)';
+      ctx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
+      ctx.fillStyle = t < 0.25 ? 'rgba(255,255,200,0.8)' : 'rgba(255,160,50,0.5)';
+      const m = cs * 0.25;
+      ctx.fillRect(x + m, y + m, cs - m * 2, cs - m * 2);
+    }
+
+    // bombs
+    for (const b of bBombs) {
+      const x = ox + b.col * cs, y = oy + b.row * cs;
+      const age = (now - b.placeTime) / BOMB_FUSE;
+      const pulse = Math.sin(now * (0.007 + age * 0.012)) * 0.5 + 0.5;
+      const r = cs * (0.27 + pulse * 0.06);
+      ctx.fillStyle = '#181818';
+      ctx.strokeStyle = '#444';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(x + cs / 2, y + cs / 2, r, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      // fuse
+      const spark = age > 0.65 ? '#ff4a2a' : '#ffb300';
+      ctx.strokeStyle = spark;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x + cs * 0.62, y + cs * 0.35);
+      ctx.lineTo(x + cs * 0.76, y + cs * 0.18);
+      ctx.stroke();
+      ctx.fillStyle = spark;
+      ctx.shadowColor = spark;
+      ctx.shadowBlur = 4 + pulse * 4;
+      ctx.beginPath();
+      ctx.arc(x + cs * 0.76, y + cs * 0.18, 2 + pulse * 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // player
+    if (!bGameOver) {
+      const x = ox + bPlayerCol * cs, y = oy + bPlayerRow * cs;
+      // body
+      ctx.fillStyle = '#cc8800';
+      ctx.beginPath();
+      ctx.arc(x + cs / 2, y + cs * 0.58, cs * 0.28, 0, Math.PI * 2);
+      ctx.fill();
+      // head
+      ctx.fillStyle = '#ffcc44';
+      ctx.beginPath();
+      ctx.arc(x + cs / 2, y + cs * 0.3, cs * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+      // eyes
+      ctx.fillStyle = '#0a0a0a';
+      ctx.beginPath();
+      ctx.arc(x + cs * 0.42, y + cs * 0.27, cs * 0.05, 0, Math.PI * 2);
+      ctx.arc(x + cs * 0.58, y + cs * 0.27, cs * 0.05, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // HUD — bottom-left corner
+    const hudSize = Math.max(10, Math.floor(cs * 0.5));
+    ctx.shadowBlur = 0;
+    ctx.font = `${hudSize}px "Share Tech Mono", monospace`;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillStyle = '#ffb300';
+    ctx.fillText(`BOMBS x${bMaxBombs}`, bOffX + 2, canvas.height - 4);
+    ctx.fillStyle = '#ff4a2a';
+    ctx.fillText(`FLAME x${bBombRange}`, bOffX + 2 + canvas.width * 0.18, canvas.height - 4);
+  }
+
+  function bExplode(b) {
+    bBombs = bBombs.filter(x => x !== b);
+    const now = Date.now();
+    const exp = now + FLAME_LIFE;
+    bFlames.push({ col: b.col, row: b.row, expireAt: exp });
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    for (const [dc, dr] of dirs) {
+      for (let i = 1; i <= bBombRange; i++) {
+        const nc = b.col + dc * i, nr = b.row + dr * i;
+        if (nc < 0 || nr < 0 || nc >= bCols || nr >= bRows) break;
+        const cell = bGrid[nr][nc];
+        if (cell === 1) break; // indestructible — stop
+        bFlames.push({ col: nc, row: nr, expireAt: exp });
+        if (cell === 2) {
+          // destroy soft block — check for hidden powerup or exit
+          const key = `${nc},${nr}`;
+          if (nc === bExitCol && nr === bExitRow) {
+            bGrid[nr][nc] = 4; bExitRevealed = true;
+          } else if (bHiddenPowerups[key]) {
+            bGrid[nr][nc] = bHiddenPowerups[key] === "bombs" ? 5 : 6;
+          } else {
+            bGrid[nr][nc] = 0;
+          }
+          break; // flame doesn't pass through blocks
+        }
+        // chain reaction
+        const chain = bBombs.find(x => x.col === nc && x.row === nr);
+        if (chain) { clearTimeout(chain.timerId); bExplode(chain); }
+      }
+    }
+  }
+
+  function bPlaceBomb() {
+    if (!bombActive || bGameOver || bGameWon) return;
+    if (bBombs.length >= bMaxBombs) return;
+    if (bHasBomb(bPlayerCol, bPlayerRow)) return;
+    const b = { col: bPlayerCol, row: bPlayerRow, placeTime: Date.now() };
+    b.timerId = setTimeout(() => bExplode(b), BOMB_FUSE);
+    bBombs.push(b);
+  }
+
+  function moveBomber(dc, dr) {
+    if (!bombActive || bGameOver || bGameWon) return;
+    const nc = bPlayerCol + dc, nr = bPlayerRow + dr;
+    if (bSolid(nc, nr) || bHasBomb(nc, nr)) return;
+    bPlayerCol = nc; bPlayerRow = nr;
+    // collect powerup
+    const cell = bGrid[nr][nc];
+    if (cell === 5) { bMaxBombs = Math.min(bMaxBombs + 1, 5); bGrid[nr][nc] = 0; }
+    if (cell === 6) { bBombRange = Math.min(bBombRange + 1, 8); bGrid[nr][nc] = 0; }
+    // win check
+    if (bExitRevealed && nc === bExitCol && nr === bExitRow) {
+      bGameWon = true; bomberWin(); return;
+    }
+    // flame check
+    const now = Date.now();
+    if (bFlames.some(f => f.col === nc && f.row === nr && f.expireAt > now)) {
+      bGameOver = true; bomberGameOver();
+    }
+  }
+
+  function bTick() {
+    if (!bombActive) return;
+    const now = Date.now();
+    bFlames = bFlames.filter(f => f.expireAt > now);
+    // standing-in-flame check
+    if (!bGameOver && !bGameWon &&
+        bFlames.some(f => f.col === bPlayerCol && f.row === bPlayerRow && f.expireAt > now)) {
+      bGameOver = true; bomberGameOver(); return;
+    }
+    drawBombFrame();
+    sendBombFrame();
+  }
+
+  function sendBombFrame() {
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+    send({ type: "stamp", data: dataUrl, x: 0.5, y: 0.5, w: 1.0, h: 1.0, r: 0, ephemeral: true });
+  }
+
+  function startBomberman() {
+    bombActive = true; bGameOver = false; bGameWon = false;
+    bSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    bBombs = []; bFlames = [];
+    bMaxBombs = 1; bBombRange = 3;
+    bCellSize = Math.max(24, Math.floor(Math.min(canvas.width / 19, canvas.height / 11)));
+    bCols = Math.floor(canvas.width  / bCellSize); if (bCols % 2 === 0) bCols--;
+    bRows = Math.floor(canvas.height / bCellSize); if (bRows % 2 === 0) bRows--;
+    bCols = Math.min(bCols, 21); bRows = Math.min(bRows, 13);
+    bOffX = Math.floor((canvas.width  - bCols * bCellSize) / 2);
+    bOffY = Math.floor((canvas.height - bRows * bCellSize) / 2);
+    bGrid = bGenGrid(bCols, bRows);
+    bPlayerCol = 1; bPlayerRow = 1;
+    dpad.classList.add("visible");
+    document.getElementById("bomb-btn").classList.add("visible");
+    drawBombFrame(); sendBombFrame();
+    bLoopId = setInterval(bTick, 50);
+  }
+
+  function bomberWin() {
+    clearInterval(bLoopId);
+    drawBombFrame();
+    ctx.fillStyle = 'rgba(0,0,0,0.82)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `bold ${Math.floor(canvas.width * 0.12)}px "Share Tech Mono", monospace`;
+    ctx.fillStyle = '#39ff14';
+    ctx.shadowColor = 'rgba(57,255,20,0.35)';
+    ctx.shadowBlur = 14;
+    ctx.fillText('YOU WIN!', canvas.width / 2, canvas.height * 0.44);
+    ctx.shadowBlur = 0;
+    sendBombFrame();
+    const winOverlay = document.getElementById("bomber-win-overlay");
+    const winCount   = document.getElementById("bomber-win-count");
+    winOverlay.classList.add("visible");
+    let n = 5; winCount.textContent = n;
+    const t = setInterval(() => {
+      winCount.textContent = --n;
+      if (n <= 0) { clearInterval(t); winOverlay.classList.remove("visible"); endBomberman(); }
+    }, 1000);
+  }
+
+  function bomberGameOver() {
+    clearInterval(bLoopId);
+    drawBombFrame();
+    ctx.fillStyle = 'rgba(0,0,0,0.82)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `bold ${Math.floor(canvas.width * 0.1)}px "Share Tech Mono", monospace`;
+    ctx.fillStyle = '#ff4a2a';
+    ctx.shadowColor = 'rgba(255,74,42,0.35)';
+    ctx.shadowBlur = 14;
+    ctx.fillText('GAME OVER', canvas.width / 2, canvas.height * 0.44);
+    ctx.shadowBlur = 0;
+    sendBombFrame();
+    const overOverlay = document.getElementById("bomber-over-overlay");
+    const overCount   = document.getElementById("bomber-over-count");
+    overOverlay.classList.add("visible");
+    let n = 4; overCount.textContent = n;
+    const t = setInterval(() => {
+      overCount.textContent = --n;
+      if (n <= 0) { clearInterval(t); overOverlay.classList.remove("visible"); endBomberman(); }
+    }, 1000);
+  }
+
+  function endBomberman() {
+    bombActive = false;
+    clearInterval(bLoopId); bLoopId = null;
+    for (const b of bBombs) clearTimeout(b.timerId);
+    bBombs = []; bFlames = [];
+    dpad.classList.remove("visible");
+    document.getElementById("bomb-btn").classList.remove("visible");
+    if (bSnapshot) { ctx.putImageData(bSnapshot, 0, 0); bSnapshot = null; }
+    else { ctx.clearRect(0, 0, canvas.width, canvas.height); replayHistory(); }
+    send({ type: "redraw", history: flatHistory() });
+  }
+
+  document.getElementById("bomberman-btn").addEventListener("click", () => {
+    closeAllPickers();
+    startBomberman();
+  });
+
+  // D-pad buttons — dispatch to active game
+  function dpadMove(dc, dr) {
+    if (mazeActive)  moveBall(dc, dr);
+    else if (bombActive) moveBomber(dc, dr);
+  }
+  document.getElementById("dpad-up").addEventListener("click",    () => dpadMove(0, -1));
+  document.getElementById("dpad-down").addEventListener("click",  () => dpadMove(0,  1));
+  document.getElementById("dpad-left").addEventListener("click",  () => dpadMove(-1, 0));
+  document.getElementById("dpad-right").addEventListener("click", () => dpadMove(1,  0));
+
+  document.getElementById("exit-game-btn").addEventListener("click", () => {
+    if (mazeActive) { mazeActive = false; mazeMoving = false; endMaze(); }
+    else if (bombActive) { bGameOver = true; endBomberman(); }
+  });
+
+  // Keyboard arrow keys + space for bomb
+  document.addEventListener("keydown", e => {
+    if (mazeActive) {
+      if (e.key === "ArrowUp")    { e.preventDefault(); moveBall(0, -1); }
+      if (e.key === "ArrowDown")  { e.preventDefault(); moveBall(0,  1); }
+      if (e.key === "ArrowLeft")  { e.preventDefault(); moveBall(-1, 0); }
+      if (e.key === "ArrowRight") { e.preventDefault(); moveBall(1,  0); }
+    } else if (bombActive) {
+      if (e.key === "ArrowUp")    { e.preventDefault(); moveBomber(0, -1); }
+      if (e.key === "ArrowDown")  { e.preventDefault(); moveBomber(0,  1); }
+      if (e.key === "ArrowLeft")  { e.preventDefault(); moveBomber(-1, 0); }
+      if (e.key === "ArrowRight") { e.preventDefault(); moveBomber(1,  0); }
+      if (e.key === " ")          { e.preventDefault(); bPlaceBomb(); }
+    }
+  });
+
+  document.getElementById("bomb-btn").addEventListener("click", bPlaceBomb);
+
+  // D-pad button press feedback
+  document.querySelectorAll(".dpad-btn:not(.dpad-center)").forEach(btn => {
+    btn.addEventListener("pointerdown", () => btn.classList.add("pressed"));
+    btn.addEventListener("pointerup",   () => btn.classList.remove("pressed"));
+    btn.addEventListener("pointerleave",() => btn.classList.remove("pressed"));
   });
 
   quotesPickerOverlay.addEventListener("click", e => {
