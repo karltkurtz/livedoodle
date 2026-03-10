@@ -2060,9 +2060,10 @@
 
     function step() {
       const nc = ballCol + dc, nr = ballRow + dr;
-      if (!canPass(nc, nr)) { mazeMoving = false; return; }
+      if (!canPass(nc, nr)) { mazeMoving = false; sndMazeWall(); return; }
 
       ballCol = nc; ballRow = nr;
+      sndMazeStep();
       drawMazeFrame();
       sendMazeFrame();
 
@@ -2101,6 +2102,7 @@
   }
 
   function mazeWin() {
+    sndMazeWin();
     mazeActive = false;
     let n = 5;
     drawWinFrame(n);
@@ -2579,6 +2581,58 @@
     } catch(e) {}
   }
   // --- End Bomberman Audio ---
+
+  // --- Maze Audio ---
+  function sndMazeStep() {
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.connect(gain); gain.connect(ac.destination);
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.06, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+      osc.start(t); osc.stop(t + 0.05);
+    } catch(e) {}
+  }
+
+  function sndMazeWall() {
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.connect(gain); gain.connect(ac.destination);
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(180, t);
+      osc.frequency.exponentialRampToValueAtTime(90, t + 0.08);
+      gain.gain.setValueAtTime(0.18, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      osc.start(t); osc.stop(t + 0.12);
+    } catch(e) {}
+  }
+
+  function sndMazeWin() {
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      const notes = [523, 659, 784, 1047, 784, 1047, 1319];
+      const durs  = [0.1, 0.1, 0.1, 0.2,  0.1, 0.1,  0.35];
+      let offset = 0;
+      notes.forEach((f, i) => {
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.connect(gain); gain.connect(ac.destination);
+        osc.type = 'square';
+        osc.frequency.value = f;
+        const s = t + offset;
+        gain.gain.setValueAtTime(0.22, s);
+        gain.gain.exponentialRampToValueAtTime(0.001, s + durs[i]);
+        osc.start(s); osc.stop(s + durs[i] + 0.02);
+        offset += durs[i];
+      });
+    } catch(e) {}
+  }
+  // --- End Maze Audio ---
 
   function startBomberman() {
     bombActive = true; bGameOver = false; bGameWon = false;
