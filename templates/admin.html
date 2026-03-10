@@ -496,6 +496,18 @@
 
     <div class="rule"></div>
 
+    <!-- Maintenance Mode -->
+    <div>
+      <div class="section-label">// Site Access</div>
+      <div id="maintenance-status" style="font-size:9px;color:#555;margin-bottom:12px;letter-spacing:0.12em;">—</div>
+      <div style="display:flex;gap:8px;">
+        <button class="presence-btn" id="btn-maintenance-on" style="flex:1;border-color:var(--coral);color:var(--coral);">MAINTENANCE ON</button>
+        <button class="presence-btn" id="btn-maintenance-off" style="flex:1;border-color:var(--green);color:var(--green);">SITE LIVE</button>
+      </div>
+    </div>
+
+    <div class="rule"></div>
+
     <!-- Presence -->
     <div>
       <div class="section-label">// Presence</div>
@@ -571,6 +583,7 @@
         document.getElementById('panel').classList.add('visible');
         startCamera();
         fetchPresence();
+        fetchMaintenance();
         buildCamControls();
         loadModerationLog();
       } else {
@@ -585,6 +598,62 @@
 
   document.getElementById('pw-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('unlock-btn').click();
+  });
+
+  // Maintenance
+  function setMaintenanceUI(on) {
+    const statusEl = document.getElementById('maintenance-status');
+    const btnOn  = document.getElementById('btn-maintenance-on');
+    const btnOff = document.getElementById('btn-maintenance-off');
+    if (on) {
+      statusEl.textContent = 'MAINTENANCE MODE IS ON — SITE SHOWING SPLASH SCREEN';
+      statusEl.style.color = 'var(--coral)';
+      btnOn.style.opacity  = '1';
+      btnOn.style.boxShadow = '0 0 12px rgba(255,74,42,0.5)';
+      btnOff.style.opacity = '0.4';
+      btnOff.style.boxShadow = 'none';
+    } else {
+      statusEl.textContent = 'SITE IS LIVE — VISITORS SEE NORMAL PAGES';
+      statusEl.style.color = 'var(--green)';
+      btnOff.style.opacity = '1';
+      btnOff.style.boxShadow = '0 0 12px rgba(57,255,20,0.4)';
+      btnOn.style.opacity  = '0.4';
+      btnOn.style.boxShadow = 'none';
+    }
+  }
+
+  async function fetchMaintenance() {
+    try {
+      const r = await fetch('/admin/maintenance-status', {
+        headers: { 'X-Admin-Password': pw }
+      });
+      if (r.ok) {
+        const data = await r.json();
+        setMaintenanceUI(data.maintenance);
+      }
+    } catch (_) {}
+  }
+
+  document.getElementById('btn-maintenance-on').addEventListener('click', async () => {
+    try {
+      const r = await fetch('/admin/maintenance-on', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw }),
+      });
+      if (r.ok) setMaintenanceUI(true);
+    } catch (_) {}
+  });
+
+  document.getElementById('btn-maintenance-off').addEventListener('click', async () => {
+    try {
+      const r = await fetch('/admin/maintenance-off', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw }),
+      });
+      if (r.ok) setMaintenanceUI(false);
+    } catch (_) {}
   });
 
   // Camera

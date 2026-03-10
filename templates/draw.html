@@ -514,6 +514,123 @@
       box-shadow: 0 0 8px rgba(255,74,42,0.3);
     }
 
+    /* Jurassic Park overlay — covers canvas while game is server-side */
+    #jurassic-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      z-index: 12;
+      background: rgba(10,10,28,0.93);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      text-align: center;
+    }
+    #jurassic-overlay.visible { display: flex; }
+    #jurassic-overlay h2 {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: clamp(14px, 4vw, 20px);
+      color: var(--amber);
+      letter-spacing: 0.2em;
+      margin: 0;
+    }
+    #jurassic-overlay p {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: clamp(10px, 2.8vw, 13px);
+      color: #0dc00d;
+      letter-spacing: 0.12em;
+      margin: 0;
+      line-height: 1.7;
+    }
+    #jurassic-input-row {
+      display: flex;
+      gap: 6px;
+      width: min(320px, 90%);
+    }
+    #jurassic-input {
+      flex: 1;
+      background: #0a0a1a;
+      border: 1px solid var(--amber);
+      color: var(--amber);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 14px;
+      padding: 8px 10px;
+      outline: none;
+      letter-spacing: 0.05em;
+    }
+    #jurassic-send {
+      background: none;
+      border: 1px solid var(--amber);
+      color: var(--amber);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      padding: 8px 12px;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+    }
+    /* hide dpad arrows and bomb when jurassic is active */
+    #dpad.jurassic #dpad-grid { display: none; }
+    #dpad.jurassic #bomb-btn  { display: none; }
+    #dpad.jurassic #exit-game-btn {
+      margin-top: 0;
+      margin-left: 0;
+      border-color: var(--amber);
+      color: var(--amber);
+      box-shadow: 0 0 8px rgba(255,179,0,0.3);
+    }
+
+    /* Oregon Trail overlay */
+    #trail-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      z-index: 12;
+      background: rgba(4, 8, 4, 0.96);
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 8px 0 6px;
+      gap: 6px;
+      overflow-y: auto;
+    }
+    #trail-overlay.visible { display: flex; }
+    #trail-screen {
+      width: 100%;
+      max-width: 375px;
+      display: block;
+      border: 1px solid #223322;
+    }
+    #trail-choices {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      width: min(340px, 94%);
+    }
+    .trail-choice-btn {
+      background: none;
+      border: 1px solid var(--teal);
+      color: var(--teal);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      padding: 8px 10px;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      text-align: left;
+      box-shadow: 0 0 4px rgba(0,229,255,0.15);
+    }
+    .trail-choice-btn:active { background: rgba(0,229,255,0.1); }
+    /* hide dpad arrows and bomb when trail is active */
+    #dpad.trail #dpad-grid { display: none; }
+    #dpad.trail #bomb-btn  { display: none; }
+    #dpad.trail #exit-game-btn {
+      margin-top: 0;
+      margin-left: 0;
+      border-color: var(--teal);
+      color: var(--teal);
+      box-shadow: 0 0 8px rgba(0,229,255,0.3);
+    }
+
     .quote-btn {
       font-size: 9px;
       padding: 7px 10px;
@@ -936,6 +1053,17 @@
 <div id="canvas-area">
   <div id="canvas-wrapper">
     <canvas id="canvas"></canvas>
+    <div id="jurassic-overlay">
+      <img id="jurassic-screen" style="width:100%;max-width:375px;display:block;border:1px solid #222;" alt="" />
+      <div id="jurassic-input-row">
+        <input id="jurassic-input" type="text" placeholder="TYPE A COMMAND..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+        <button id="jurassic-send">SEND</button>
+      </div>
+    </div>
+    <div id="trail-overlay">
+      <img id="trail-screen" alt="" />
+      <div id="trail-choices"></div>
+    </div>
     <div id="stamp-overlay">
       <div id="stamp-box">
         <img id="stamp-img" draggable="false" alt="" />
@@ -1155,10 +1283,12 @@
 <div class="picker-overlay" id="games-picker-overlay">
   <div class="picker-panel" style="border:1px solid var(--purple);box-shadow:0 0 18px rgba(191,95,255,0.3);">
     <div class="picker-panel-title" style="color:var(--purple);">GAMES</div>
-    <div class="picker-panel-items" style="flex-direction:column;gap:4px;">
+    <div class="picker-panel-items" style="flex-direction:column;gap:4px;align-items:center;">
       <button class="game-btn" id="maze-btn">MAZE</button>
       <button class="game-btn" id="bomberman-btn" style="border-color:var(--coral);color:var(--coral);box-shadow:0 0 6px rgba(255,74,42,0.25);">BOMBERMAN</button>
       <button class="game-btn" id="wargame-btn" style="border-color:var(--green);color:var(--green);box-shadow:0 0 6px rgba(57,255,20,0.25);">WARGAME</button>
+      <button class="game-btn" id="jurassic-btn" style="border-color:var(--amber);color:var(--amber);box-shadow:0 0 6px rgba(255,179,0,0.25);">JURASSIC PARK</button>
+      <button class="game-btn" id="trail-btn" style="border-color:var(--teal);color:var(--teal);box-shadow:0 0 6px rgba(0,229,255,0.25);">OREGON TRAIL</button>
     </div>
   </div>
 </div>
@@ -1428,7 +1558,7 @@
   const toolbar       = document.getElementById("toolbar");
 
   function startDraw(x, y) {
-    if (mazeActive || bombActive || wgActive) return;
+    if (mazeActive || bombActive || wgActive || jpActive || trailActive) return;
     if (stampOverlay.classList.contains("active")) return;
     if (isFilling) {
       const color = getColor();
@@ -1525,6 +1655,13 @@
       setTimeout(() => { clearInterval(iv); location.href = "/"; }, 4500);
     } else if (msg.type === "approved") {
       location.href = "/";
+    } else if (msg.type === "jurassic_frame") {
+      const screen = document.getElementById("jurassic-screen");
+      if (screen) screen.src = msg.data;
+    } else if (msg.type === "trail_frame") {
+      trailScreen.src = msg.data;
+    } else if (msg.type === "trail_choices") {
+      trailSetChoices(msg.choices);
     } else if (msg.type === "busy") {
       ws.onclose = null;
       ws.close();
@@ -1827,6 +1964,7 @@
   const mazeWinOverlay = document.getElementById("maze-win-overlay");
   const mazeWinCount   = document.getElementById("maze-win-count");
   let mazeActive = false;
+  let trailActive = false; // hoisted — assigned properly in Oregon Trail section below
   let mazeGrid = [], mazeCols = 0, mazeRows = 0, mazeCellSize = 0;
   let ballCol = 1, ballRow = 1, exitCol = 0, exitRow = 0;
   let mazeSnapshot = null;
@@ -2779,10 +2917,87 @@
   document.getElementById("dpad-left").addEventListener("click",  () => dpadMove(-1, 0));
   document.getElementById("dpad-right").addEventListener("click", () => dpadMove(1,  0));
 
+  // ── Jurassic Park ──
+  let jpActive = false;
+  const jurassicOverlay = document.getElementById("jurassic-overlay");
+  const jurassicInput   = document.getElementById("jurassic-input");
+  const jurassicSend    = document.getElementById("jurassic-send");
+
+  function jpSubmit() {
+    const text = jurassicInput.value.trim();
+    if (!text || !jpActive) return;
+    jurassicInput.value = "";
+    send({ type: "jurassic_input", text });
+  }
+
+  jurassicSend.addEventListener("click", jpSubmit);
+  jurassicInput.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); jpSubmit(); } });
+
+  function startJurassic() {
+    jpActive = true;
+    jurassicOverlay.classList.add("visible");
+    dpad.classList.add("visible", "jurassic");
+    send({ type: "jurassic_start" });
+    setTimeout(() => jurassicInput.focus(), 100);
+  }
+
+  function endJurassic() {
+    jpActive = false;
+    jurassicOverlay.classList.remove("visible");
+    dpad.classList.remove("visible", "jurassic");
+    send({ type: "jurassic_stop" });
+  }
+
+  document.getElementById("jurassic-btn").addEventListener("click", () => {
+    closeAllPickers();
+    startJurassic();
+  });
+
+  // ── Oregon Trail ──
+  const trailOverlay = document.getElementById("trail-overlay");
+  const trailScreen  = document.getElementById("trail-screen");
+  const trailChoices = document.getElementById("trail-choices");
+
+  function trailSetChoices(choices) {
+    trailChoices.innerHTML = "";
+    choices.forEach(c => {
+      const btn = document.createElement("button");
+      btn.className = "trail-choice-btn";
+      btn.textContent = c.label;
+      btn.addEventListener("click", () => {
+        if (!trailActive) return;
+        send({ type: "trail_action", action: c.action });
+      });
+      trailChoices.appendChild(btn);
+    });
+  }
+
+  function startTrail() {
+    trailActive = true;
+    trailOverlay.classList.add("visible");
+    dpad.classList.add("visible", "trail");
+    send({ type: "trail_start" });
+  }
+
+  function endTrail() {
+    trailActive = false;
+    trailOverlay.classList.remove("visible");
+    dpad.classList.remove("visible", "trail");
+    trailChoices.innerHTML = "";
+    send({ type: "trail_stop" });
+  }
+
+  document.getElementById("trail-btn").addEventListener("click", () => {
+    closeAllPickers();
+    startTrail();
+  });
+
   document.getElementById("exit-game-btn").addEventListener("click", () => {
     if (mazeActive)      { mazeActive = false; mazeMoving = false; endMaze(); }
     else if (bombActive) { bGameOver = true; endBomberman(); }
     else if (wgActive)   { endWargame(); }
+    else if (jpActive)   { endJurassic(); }
+    else if (trailActive){ endTrail(); }
   });
 
   // Keyboard arrow keys + space for bomb

@@ -539,3 +539,46 @@ Next priorities (in order):
 2. **Bomberman enemies** — simple wandering AI, game over on contact.
 3. **Moderation confidence threshold** — second Groq pass on positive flags (confidence 1–10, only flag if ≥ 7).
 4. **GIF playback from admin page** — `POST /admin/play-gif` + `POST /admin/stop-gif`.
+
+---
+
+## Session Wrap-Up (2026-03-11)
+
+### Accomplished
+- **WARGAME built and deployed** — WarGames-inspired text adventure inside `/draw`, accessible via the GAMES picker.
+  - Full state machine: BOOT → LOGIN → SIDE_SELECT → TARGET_SELECT → LAUNCH_CONFIRM → MISSILES_AWAY → RETALIATION → AFTERMATH → LESSON
+  - Boot sequence scrolls WOPR computer lines at 300ms/line
+  - Side selection: USA targets USSR cities, USSR targets US cities
+  - Target selection: sequential "SELECT FIRST/SECOND/THIRD TARGET" prompts; selected targets get `[X]` strikethrough in dim green with a canvas strikethrough line; only unselected targets remain as buttons
+  - Launch confirmation, missile arc animation (stepping `wgMissileProg` via `setInterval`), retaliation, casualty totals, WarGames lesson quote
+  - LESSON screen shows PLAY AGAIN button to restart
+  - All input via buttons (no text field) — buttons rebuilt dynamically by `wgUpdateUI()` after every state transition via `wgDispatch(input)`
+  - EXIT GAME button in the dpad row; dpad arrows and BOMB button hidden in wargame mode
+- **dpad z-index fix** — `#toolbar::before` amber line (positioned `top: -22px`) was painting over the dpad and eating all clicks for all games. Fixed with `position: relative; z-index: 2` on `#dpad`. This also fixed maze and Bomberman dpad being unresponsive.
+- **Cleaned up `maze-game` branch** — deleted after confirming merged to `main`.
+
+### Decisions Made
+- WARGAME uses the same ephemeral stamp pattern as Maze and Bomberman (canvas frames sent as `{ephemeral:true}` stamps, never saved to artwork history).
+- All WARGAME interaction is button-driven. No text input field. `wgDispatch(input)` → `wgHandleInput(input)` → `wgUpdateUI()` → `wgRender()` + `wgSendFrame()`.
+- `wgUpdateUI()` rebuilds the button bar from scratch on every call; buttons are created with `wgMakeBtn(label, cb, red?)`.
+- NO in LOGIN → `endWargame()` (labeled "NO — EXIT"). NO in LAUNCH_CONFIRM → abort back to TARGET_SELECT (labeled "NO — ABORT").
+
+### Incomplete / Loose Ends
+- **LCD white flash** — still occasional; carry over from last session.
+- **Bomberman enemies** — deferred, carry over.
+- **Moderation confidence threshold** — carry over.
+- **GIF playback from admin page** — carry over.
+
+### Resume From Here
+1. **New games** — see ideas below. Snake is the best next pick (dpad-native, simple state).
+2. **Bomberman enemies** — simple wandering AI.
+3. **LCD white flash** — investigate Pi WS reconnects; consider black `clearCanvas()`.
+4. **Moderation confidence threshold** — second Groq pass, flag only if ≥ 7.
+
+### Game Ideas for Future Sessions
+- **Snake** — dpad moves head, grows on eat, dies on self/wall collision. Easiest next game. Apple spawns randomly, score shown in HUD.
+- **Pong** — single-player vs CPU. Dpad up/down moves paddle. CPU paddle tracks ball with slight lag. Ball speeds up over time.
+- **Breakout** — dpad left/right moves paddle. Bricks arranged in rows with color tiers. Ball bounces, clears bricks. Classic.
+- **Tic-Tac-Toe** — 9 numbered buttons for grid positions. Player is X, CPU picks random open square. Simple but interactive.
+- **2048** — dpad swipes merge numbered tiles. Pure grid logic, no animation needed. Could send a frame per move.
+- **Simon Says** — 4 colored buttons flash in sequence; player must repeat. Memory game. Buttons are the entire UI.

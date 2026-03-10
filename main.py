@@ -5,10 +5,11 @@ import io
 import ipaddress
 import json
 import os
+import random
 import sqlite3
 import time
 import httpx
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 # Load .env for local dev (systemd uses EnvironmentFile instead)
 def _load_dotenv():
@@ -150,12 +151,21 @@ def get_daily_prompt() -> str:
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
+
+@app.middleware("http")
+async def maintenance_middleware(request: Request, call_next):
+    if _maintenance_mode and not request.url.path.startswith("/admin"):
+        return templates.TemplateResponse("maintenance.html", {"request": request})
+    return await call_next(request)
+
+
 _latest_frame: bytes | None = None
 _geo_cache: dict[str, str] = {}
 _presence: str = "home"  # "home" | "away" | "coding"
 _last_location: str = ""
 _last_visitor_time: float = 0.0
 _artwork_editing: bool = False
+_maintenance_mode: bool = False
 _visitors: list[dict] = []
 _visitor_ips: set[str] = set()
 
@@ -448,10 +458,13 @@ class ConnectionManager:
                     pass
 
     async def broadcast_to_displays(self, message: dict):
+        await self.broadcast_to_displays_raw(json.dumps(message))
+
+    async def broadcast_to_displays_raw(self, text: str):
         dead = []
         for client in self.display_clients:
             try:
-                await client.send_text(json.dumps(message))
+                await client.send_text(text)
             except Exception:
                 dead.append(client)
         for client in dead:
@@ -584,6 +597,34 @@ async def admin_set_coding(request: Request):
     _presence = "coding"
     _save_home_status("coding")
     return JSONResponse({"presence": "coding"})
+
+
+@app.post("/admin/maintenance-on")
+async def admin_maintenance_on(request: Request):
+    global _maintenance_mode
+    body = await request.json()
+    if not _check_password(body):
+        return JSONResponse({"error": "wrong password"}, status_code=401)
+    _maintenance_mode = True
+    return JSONResponse({"maintenance": True})
+
+
+@app.post("/admin/maintenance-off")
+async def admin_maintenance_off(request: Request):
+    global _maintenance_mode
+    body = await request.json()
+    if not _check_password(body):
+        return JSONResponse({"error": "wrong password"}, status_code=401)
+    _maintenance_mode = False
+    return JSONResponse({"maintenance": False})
+
+
+@app.get("/admin/maintenance-status")
+async def admin_maintenance_status(request: Request):
+    pw = request.headers.get("X-Admin-Password", "")
+    if pw != ADMIN_PASSWORD:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    return JSONResponse({"maintenance": _maintenance_mode})
 
 
 CAMERA_CONTROL_URL = "http://10.0.0.8:8080/controls"
@@ -763,6 +804,798 @@ async def _check_artwork_moderation(entry: dict, websocket):
             await websocket.send_json({"type": "approved"})
         except Exception:
             pass
+
+
+# ---------------------------------------------------------------------------
+# Oregon Trail Game
+# ---------------------------------------------------------------------------
+
+_OT_FONT_PATHS = [
+    "/System/Library/Fonts/Menlo.ttc",
+    "/System/Library/Fonts/Monaco.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+]
+_OT_BOLD_FONT_PATHS = [
+    "/System/Library/Fonts/Menlo.ttc",
+    "/System/Library/Fonts/Supplemental/Courier New Bold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+]
+
+def _ot_load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
+    paths = _OT_BOLD_FONT_PATHS if bold else _OT_FONT_PATHS
+    for path in paths:
+        try:
+            return ImageFont.truetype(path, size)
+        except (OSError, IOError):
+            continue
+    return ImageFont.load_default()
+
+_OT_BG       = (8,  14,  8)
+_OT_AMBER    = (210, 170, 50)
+_OT_GREEN    = (60,  190, 60)
+_OT_RED      = (220,  60, 40)
+_OT_DIM      = (70,   80, 60)
+_OT_WHITE    = (200, 195, 170)
+_OT_GOLD     = (240, 200, 60)
+_OT_BROWN    = (140, 100, 40)
+
+_OT_WAYPOINTS = [
+    (400,  "FORT KEARNEY"),
+    (800,  "FORT LARAMIE"),
+    (1300, "FORT HALL"),
+    (2000, "OREGON CITY"),
+]
+
+_OT_EVENTS = [
+    ("ILLNESS",     "SOMEONE IN YOUR PARTY HAS FALLEN ILL.",      "health", -1,  0),
+    ("BROKEN_AXLE", "YOUR WAGON AXLE BREAKS. COSTLY REPAIRS.",    "money",   0, -50),
+    ("HEAVY_RAIN",  "TORRENTIAL RAINS WASH OUT THE TRAIL.",       "miles",  -30,  0),
+    ("GOOD_HUNT",   "EXCELLENT HUNTING! YOUR STORES ARE FULL.",   "food",   40,   0),
+    ("BERRIES",     "YOU FIND WILD BERRIES ALONG THE TRAIL.",     "food",   15,   0),
+    ("THIEF",       "THIEVES RAID YOUR CAMP IN THE NIGHT.",       "food",  -30,   0),
+    ("SNAKE_BITE",  "RATTLESNAKE BITE! REST COSTS YOU TIME.",     "miles",  -20, -20),
+    ("FAIR",        "FAIR SKIES AND GOOD ROADS.",                 None,      0,   0),
+    ("FAIR",        "THE TRAIL IS CLEAR. GOOD PROGRESS.",        None,      0,   0),
+    ("FAIR",        "NOTHING OF NOTE. MILES ROLL BY.",            None,      0,   0),
+]
+
+
+class OregonTrailGame:
+    INTRO    = "INTRO"
+    RATIONS  = "RATIONS"
+    TRAVEL   = "TRAVEL"   # choose pace for next leg
+    EVENT    = "EVENT"    # show event result, then choose next pace
+    FORT     = "FORT"
+    RIVER    = "RIVER"
+    VICTORY  = "VICTORY"
+    DEATH    = "DEATH"
+
+    HEALTH_LABELS = {5: "EXCELLENT", 4: "GOOD", 3: "FAIR", 2: "POOR", 1: "VERY POOR"}
+
+    def __init__(self):
+        self.state    = self.INTRO
+        self.miles    = 0
+        self.food     = 200       # lbs
+        self.health   = 5         # 1-5
+        self.money    = 400       # dollars
+        self.party    = 4         # people
+        self.rations  = "FILLING" # BARE / MEAGER / FILLING / HEARTY
+        self.turn     = 0
+        self.wp_idx   = 0         # next waypoint index
+        self.river_crossed = False
+        self.log: list[str] = [
+            "THE YEAR IS 1848.",
+            "YOU ARE LEAVING INDEPENDENCE,",
+            "MISSOURI FOR OREGON CITY.",
+            "",
+            "THE JOURNEY IS 2000 MILES.",
+            "FIRST — SET YOUR RATIONS.",
+        ]
+
+    def reset(self): self.__init__()
+
+    def health_label(self) -> str:
+        return self.HEALTH_LABELS.get(self.health, "DEAD")
+
+    def food_per_turn(self) -> float:
+        per_person_per_week = {"BARE": 3.0, "MEAGER": 5.0, "FILLING": 7.0, "HEARTY": 9.5}
+        return per_person_per_week[self.rations] * self.party * 2
+
+    def choices(self) -> list[dict]:
+        if self.state == self.INTRO:
+            return [{"label": "BEGIN JOURNEY", "action": "begin"}]
+        if self.state == self.RATIONS:
+            return [
+                {"label": "BARE  (3 LB/PERSON/WK)",    "action": "rations_BARE"},
+                {"label": "MEAGER  (5 LB)",             "action": "rations_MEAGER"},
+                {"label": "FILLING  (7 LB) ✓",         "action": "rations_FILLING"},
+                {"label": "HEARTY  (9.5 LB)",           "action": "rations_HEARTY"},
+            ]
+        if self.state in (self.TRAVEL, self.EVENT):
+            return [
+                {"label": "SLOW PACE  (+60 MI, SAFER)",  "action": "pace_SLOW"},
+                {"label": "NORMAL  (+100 MI)",            "action": "pace_NORMAL"},
+                {"label": "FAST  (+140 MI, RISKY)",      "action": "pace_FAST"},
+            ]
+        if self.state == self.FORT:
+            opts = [{"label": "CONTINUE WEST →", "action": "fort_go"}]
+            if self.money >= 20:
+                opts.insert(0, {"label": f"BUY FOOD  ($20 / 50 LB)", "action": "fort_food"})
+            if self.money >= 40 and self.health < 5:
+                opts.insert(0, {"label": f"BUY MEDICINE  ($40)",     "action": "fort_med"})
+            if self.health < 5:
+                opts.insert(0, {"label": "REST HERE  (+1 HEALTH)",   "action": "fort_rest"})
+            return opts
+        if self.state == self.RIVER:
+            opts = [
+                {"label": "FORD THE RIVER  (FREE, RISKY)",  "action": "river_ford"},
+                {"label": "CAULK WAGON  (SLOW, SAFER)",     "action": "river_caulk"},
+            ]
+            if self.money >= 10:
+                opts.append({"label": "HIRE FERRY  ($10, SAFE)", "action": "river_ferry"})
+            return opts
+        if self.state in (self.VICTORY, self.DEATH):
+            return [{"label": "PLAY AGAIN", "action": "restart"}]
+        return []
+
+    def handle(self, action: str):
+        if action == "begin":
+            self.state = self.RATIONS
+            self.log = ["CHOOSE YOUR DAILY RATIONS:", "", "MORE FOOD = BETTER HEALTH.", "LESS FOOD = FASTER PROGRESS.", "(PARTY OF 4, 2-WEEK LEGS)"]
+
+        elif action.startswith("rations_"):
+            self.rations = action.split("_", 1)[1]
+            self.state = self.TRAVEL
+            self.log = [f"RATIONS SET: {self.rations}.", "", "NOW CHOOSE YOUR PACE.", "EACH LEG IS 2 WEEKS OF TRAVEL."]
+
+        elif action.startswith("pace_"):
+            pace = action.split("_", 1)[1]
+            self._travel(pace)
+
+        elif action == "fort_food":
+            if self.money >= 20:
+                self.money -= 20; self.food += 50
+                self.log = ["YOU BUY 50 LBS OF FOOD.", f"FOOD: {int(self.food)} LB   MONEY: ${self.money}"]
+        elif action == "fort_med":
+            if self.money >= 40 and self.health < 5:
+                self.money -= 40; self.health = min(5, self.health + 1)
+                self.log = ["MEDICINE PURCHASED.", f"HEALTH: {self.health_label()}   MONEY: ${self.money}"]
+        elif action == "fort_rest":
+            self.health = min(5, self.health + 1)
+            self.log = ["YOUR PARTY RESTS FOR A FEW DAYS.", f"HEALTH: {self.health_label()}"]
+        elif action == "fort_go":
+            self.state = self.TRAVEL
+            self.log = ["ONWARD TO OREGON!", "", "CHOOSE YOUR PACE."]
+
+        elif action.startswith("river_"):
+            self._cross_river(action)
+
+        elif action == "restart":
+            self.reset()
+
+    def _travel(self, pace: str):
+        self.turn += 1
+        pace_miles = {"SLOW": 60, "NORMAL": 100, "FAST": 140}[pace]
+        pace_risk  = {"SLOW": 0.05, "NORMAL": 0.10, "FAST": 0.22}[pace]
+
+        # Consume food
+        needed = self.food_per_turn()
+        if self.food >= needed:
+            self.food -= needed
+        else:
+            shortfall = needed - self.food
+            self.food = 0
+            self.health -= max(1, int(shortfall / 10))
+            if self.health <= 0:
+                self._die("YOUR PARTY STARVED ON THE TRAIL."); return
+
+        # Pace health risk
+        if random.random() < pace_risk:
+            self.health -= 1
+            if self.health <= 0:
+                self._die("EXHAUSTION AND ILLNESS CLAIM YOUR PARTY."); return
+
+        self.miles = min(2000, self.miles + pace_miles)
+
+        # Check river crossing
+        if not self.river_crossed and self.miles >= 900:
+            self.river_crossed = True
+            self.state = self.RIVER
+            self.log = [
+                f"TURN {self.turn}  ·  MILE {int(self.miles)}",
+                "",
+                "YOU REACH THE SNAKE RIVER.",
+                "THE WATER IS HIGH AND SWIFT.",
+                "",
+                "HOW WILL YOU CROSS?",
+            ]
+            return
+
+        # Check waypoints
+        while self.wp_idx < len(_OT_WAYPOINTS):
+            wp_miles, wp_name = _OT_WAYPOINTS[self.wp_idx]
+            if self.miles >= wp_miles:
+                self.wp_idx += 1
+                if wp_name == "OREGON CITY":
+                    self._win(); return
+                else:
+                    self.state = self.FORT
+                    self.log = [
+                        f"YOU ARRIVE AT {wp_name}!",
+                        "",
+                        f"MILES:   {int(self.miles)} / 2000",
+                        f"FOOD:    {int(self.food)} LB",
+                        f"HEALTH:  {self.health_label()}",
+                        f"MONEY:   ${self.money}",
+                        "",
+                        "WHAT WILL YOU DO?",
+                    ]
+                    return
+            else:
+                break
+
+        # Random event
+        ev = random.choice(_OT_EVENTS)
+        _, desc, stat, delta, money_delta = ev
+        self.log = [f"TURN {self.turn}  ·  MILE {int(self.miles)} / 2000", ""]
+        if stat == "health":
+            self.health = max(0, self.health + delta)
+        elif stat == "food":
+            self.food = max(0, self.food + delta)
+        elif stat == "miles":
+            self.miles = max(0, self.miles + delta)
+        if money_delta:
+            self.money = max(0, self.money + money_delta)
+        self.log.append(desc)
+        self.log += [
+            "",
+            f"FOOD:    {int(self.food)} LB",
+            f"HEALTH:  {self.health_label()}",
+            f"MONEY:   ${self.money}",
+            "",
+            "CHOOSE PACE FOR NEXT LEG:",
+        ]
+        if self.health <= 0:
+            self._die("YOUR PARTY HAS PERISHED."); return
+        self.state = self.EVENT
+
+    def _cross_river(self, action: str):
+        if action == "river_ford":
+            if random.random() < 0.45:
+                self.food = max(0, self.food - 30)
+                self.health = max(0, self.health - 1)
+                result = ["THE WAGON TIPS! YOU LOSE SUPPLIES.", f"FOOD: {int(self.food)} LB   HEALTH: {self.health_label()}"]
+                if self.health <= 0:
+                    self._die("YOUR PARTY DROWNED CROSSING THE RIVER."); return
+            else:
+                result = ["YOU FORD THE RIVER SAFELY!"]
+        elif action == "river_caulk":
+            if random.random() < 0.2:
+                self.food = max(0, self.food - 10)
+                result = ["THE CAULKING LEAKS. YOU LOSE SOME FOOD.", f"FOOD: {int(self.food)} LB"]
+            else:
+                result = ["YOU FLOAT ACROSS WITHOUT INCIDENT."]
+        elif action == "river_ferry":
+            self.money = max(0, self.money - 10)
+            result = ["THE FERRY CROSSES SMOOTHLY.", f"MONEY: ${self.money}"]
+        else:
+            result = ["CROSSING COMPLETE."]
+        self.log = [f"MILE {int(self.miles)} / 2000", ""] + result + ["", "CHOOSE PACE FOR NEXT LEG:"]
+        self.state = self.EVENT
+
+    def _win(self):
+        self.state = self.VICTORY
+        self.log = [
+            "YOU HAVE REACHED",
+            "OREGON CITY!",
+            "",
+            "CONGRATULATIONS!",
+            "",
+            f"TURNS TAKEN:  {self.turn}",
+            f"FINAL HEALTH: {self.health_label()}",
+            f"FOOD LEFT:    {int(self.food)} LB",
+            f"MONEY LEFT:   ${self.money}",
+        ]
+
+    def _die(self, reason: str):
+        self.state = self.DEATH
+        self.log = [
+            "YOUR PARTY HAS DIED.",
+            "",
+            reason,
+            "",
+            f"MILES TRAVELED: {int(self.miles)}",
+            f"({int(self.miles / 2000 * 100)}% OF THE WAY)",
+        ]
+
+    def render(self, width: int = 375, height: int = 260) -> Image.Image:
+        img  = Image.new("RGB", (width, height), _OT_BG)
+        draw = ImageDraw.Draw(img)
+        self._render_header(draw, width)
+        self._render_progress(draw, width)
+        self._render_body(draw, width, height)
+        self._apply_scanlines(img)
+        return img
+
+    def _render_header(self, draw, w):
+        font = _ot_load_font(10, bold=True)
+        draw.rectangle([0, 0, w, 14], fill=(4, 10, 4))
+        draw.line([(0, 14), (w, 14)], fill=_OT_DIM)
+        if self.state == self.VICTORY:
+            label, color = "THE OREGON TRAIL — YOU MADE IT!", _OT_GREEN
+        elif self.state == self.DEATH:
+            label, color = "THE OREGON TRAIL — GAME OVER", _OT_RED
+        elif self.state in (self.FORT,):
+            label, color = f"THE OREGON TRAIL — {_OT_WAYPOINTS[self.wp_idx-1][1] if self.wp_idx > 0 else 'FORT'}", _OT_GOLD
+        else:
+            label, color = "THE OREGON TRAIL — 1848", _OT_AMBER
+        draw.text((6, 2), label, fill=color, font=font)
+        if self.turn > 0:
+            turn_label = f"TURN {self.turn}"
+            bbox = draw.textbbox((0, 0), turn_label, font=font)
+            tw = bbox[2] - bbox[0]
+            draw.text((w - tw - 6, 2), turn_label, fill=_OT_DIM, font=font)
+
+    def _render_progress(self, draw, w):
+        bar_y = 16
+        bar_h = 8
+        bar_w = w - 12
+        pct   = min(1.0, self.miles / 2000)
+        draw.rectangle([6, bar_y, 6 + bar_w, bar_y + bar_h], fill=(20, 30, 20))
+        if pct > 0:
+            draw.rectangle([6, bar_y, 6 + int(bar_w * pct), bar_y + bar_h], fill=_OT_BROWN)
+        # Waypoint ticks
+        font_tiny = _ot_load_font(7)
+        for wp_miles, wp_name in _OT_WAYPOINTS:
+            x = 6 + int(bar_w * wp_miles / 2000)
+            draw.line([(x, bar_y), (x, bar_y + bar_h)], fill=_OT_AMBER)
+        # Wagon marker
+        wx = 6 + int(bar_w * pct)
+        draw.text((max(6, wx - 4), bar_y - 1), "▶", fill=_OT_GOLD, font=font_tiny)
+        draw.line([(0, bar_y + bar_h + 1), (w, bar_y + bar_h + 1)], fill=_OT_DIM)
+
+    def _render_body(self, draw, w, h):
+        font   = _ot_load_font(12)
+        line_h = 16
+        margin = 8
+        top_y  = 28
+        max_lines = (h - top_y - 4) // line_h
+        lines = self.log[-max_lines:]
+        y = top_y
+        for line in lines:
+            if not line:
+                y += line_h; continue
+            if "CONGRATULATIONS" in line or "MADE IT" in line or "YOU ARRIVE" in line:
+                color = _OT_GREEN
+            elif "DIED" in line or "PERISHED" in line or "STARVED" in line or "DROWNED" in line:
+                color = _OT_RED
+            elif line.startswith("YOU HAVE REACHED") or "OREGON CITY" in line:
+                color = _OT_GREEN
+            elif "HEALTH:" in line:
+                h_val = self.health
+                color = _OT_GREEN if h_val >= 4 else (_OT_AMBER if h_val == 3 else _OT_RED)
+            elif "FOOD:" in line or "MONEY:" in line or "MILES:" in line or "TURN" in line:
+                color = _OT_AMBER
+            elif "CHOOSE" in line or "WHAT WILL" in line or "FIRST" in line or "ONWARD" in line:
+                color = _OT_WHITE
+            elif "FORT" in line or "ARRIVE" in line:
+                color = _OT_GOLD
+            elif any(x in line for x in ["RIVER", "WAGON", "SNAKE", "SWIFT"]):
+                color = _OT_AMBER
+            elif any(x in line for x in ["DISASTER", "TIPS", "DROWNED", "ATTACK", "RAID", "THIEF", "BROKE", "STARVED", "EXHAUSTION", "ILLNESS", "SICK", "BITE", "RATTLESNAKE"]):
+                color = _OT_RED
+            elif any(x in line for x in ["EXCELLENT", "HUNTING", "BERRIES", "SAFELY", "FLOAT", "FERRY", "SMOOTH"]):
+                color = _OT_GREEN
+            else:
+                color = _OT_WHITE
+            draw.text((margin, y), line, fill=color, font=font)
+            y += line_h
+
+    def _apply_scanlines(self, img):
+        overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        odraw   = ImageDraw.Draw(overlay)
+        for y in range(0, img.size[1], 4):
+            odraw.line([(0, y), (img.size[0], y)], fill=(0, 0, 0, 35))
+        img.paste(Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB"))
+
+
+def _ot_frame_msg(game: OregonTrailGame) -> str:
+    img = game.render()
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=82)
+    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    return json.dumps({
+        "type": "stamp", "data": f"data:image/jpeg;base64,{b64}",
+        "x": 0.5, "y": 0.5, "w": 1.0, "h": 1.0, "r": 0, "ephemeral": True,
+    })
+
+
+_trail_game: OregonTrailGame | None = None
+_trail_draw_ws: WebSocket | None = None
+
+
+async def _trail_send(ws: WebSocket, game: OregonTrailGame):
+    """Send frame + choices back to the draw client and display clients."""
+    img_data = _ot_frame_msg(game)
+    await manager.broadcast_to_displays_raw(img_data)
+    b64 = json.loads(img_data)["data"]
+    try:
+        await ws.send_text(json.dumps({"type": "trail_frame",   "data": b64}))
+        await ws.send_text(json.dumps({"type": "trail_choices", "choices": game.choices()}))
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Jurassic Park Security Game
+# ---------------------------------------------------------------------------
+
+_JP_FONT_PATHS = [
+    "/System/Library/Fonts/Menlo.ttc",
+    "/System/Library/Fonts/Monaco.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+]
+_JP_BOLD_FONT_PATHS = [
+    "/System/Library/Fonts/Menlo.ttc",
+    "/System/Library/Fonts/Supplemental/Courier New Bold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+]
+
+def _jp_load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
+    paths = _JP_BOLD_FONT_PATHS if bold else _JP_FONT_PATHS
+    for path in paths:
+        try:
+            return ImageFont.truetype(path, size)
+        except (OSError, IOError):
+            continue
+    return ImageFont.load_default()
+
+# JP color palette
+_JP_BG           = (20, 20, 40)
+_JP_WHITE        = (220, 220, 220)
+_JP_GREEN        = (0, 220, 0)
+_JP_BRIGHT_GREEN = (0, 255, 0)
+_JP_RED          = (255, 60, 60)
+_JP_BRIGHT_RED   = (255, 0, 0)
+_JP_AMBER        = (255, 200, 0)
+_JP_CYAN         = (0, 200, 220)
+_JP_DIM          = (80, 80, 100)
+_JP_NEDRY_YELLOW = (255, 230, 80)
+
+_JP_SYSTEMS = [
+    {"id": "FENCES",  "label": "ELECTRIC FENCES",  "zone": "PERIMETER"},
+    {"id": "DOORS",   "label": "DOOR LOCKS",        "zone": "VISITOR CTR"},
+    {"id": "PHONES",  "label": "PHONE LINES",        "zone": "COMM ARRAY"},
+    {"id": "RAPTORS", "label": "RAPTOR PEN LOCKS",  "zone": "PADDOCK C"},
+]
+_JP_DINOS = ["T-REX", "VELOCIRAPTORS", "DILOPHOSAURUS", "PTERANODON"]
+_JP_NEDRY_TAUNTS = [
+    "AH AH AH, YOU DIDN'T SAY",
+    "THE MAGIC WORD!",
+    "AH AH AH! AH AH AH!",
+    "PLEASE! GOD DAMMIT!",
+    "NOPE! NOPE! NOPE!",
+]
+_JP_BOOT_LINES = [
+    "JURASSIC PARK SYSTEM",
+    "UNIX SYSTEM V / SGI IRIX 4.0.5",
+    "INGEN BIOTECH SECURITY v2.1",
+    "LOADING MODULES ...",
+    "PARK GRID ......... ONLINE",
+    "SECURITY .......... ONLINE",
+    "ALL SYSTEMS NOMINAL",
+]
+_JP_SHUTDOWN_MSGS = [
+    "WHITE_RABBIT.OBJ EXECUTING ...",
+    "ACCESS: SECURITY TRIPPED",
+    "SYSTEM: DOOR LOCKS ... DISENGAGED",
+    "SYSTEM: FENCES ...... OFFLINE",
+    "SYSTEM: PHONES ...... DOWN",
+    "SYSTEM: RAPTOR PEN .. UNLOCKED",
+    "*** ALL SECURITY OFFLINE ***",
+]
+
+
+class JurassicGame:
+    BOOT = "BOOT"; NORMAL = "NORMAL"; SHUTDOWN = "SHUTDOWN"
+    RESTORE = "RESTORE"; MAGIC_WORD = "MAGIC_WORD"
+    ESCAPED = "ESCAPED"; SECURED = "SECURED"
+
+    def __init__(self):
+        self.state = self.BOOT
+        self.boot_step = 0
+        self.shutdown_step = 0
+        self.systems = {s["id"]: False for s in _JP_SYSTEMS}
+        self.threat = 0
+        self.said_magic_word = False
+        self.nedry_lock_count = 0
+        self.terminal_log: list[str] = []
+        self.turns_taken = 0
+        self.escaped_dino = None
+
+    def reset(self):
+        self.__init__()
+
+    def advance_boot(self) -> bool:
+        """Step boot animation. Returns True if more steps remain."""
+        if self.state != self.BOOT:
+            return False
+        self.boot_step += 1
+        if self.boot_step >= len(_JP_BOOT_LINES):
+            self.state = self.NORMAL
+            self.terminal_log = list(_JP_BOOT_LINES)
+            self.terminal_log.append("TYPE ANYTHING TO CONTINUE")
+            return False
+        return True
+
+    def advance_shutdown(self) -> bool:
+        """Step shutdown animation. Returns True if more steps remain."""
+        if self.state != self.SHUTDOWN:
+            return False
+        self.shutdown_step += 1
+        if self.shutdown_step >= len(_JP_SHUTDOWN_MSGS):
+            self.state = self.RESTORE
+            self.terminal_log = [
+                "*** NEDRY VIRUS ACTIVE ***",
+                "RESTORE SYSTEMS BEFORE ESCAPE!",
+                "",
+            ]
+            self._add_status_lines()
+            self.terminal_log.append("TYPE SYSTEM NAME TO RESTORE")
+            return False
+        return True
+
+    def handle_input(self, text: str, who: str = "VISITOR") -> list[str]:
+        text_upper = text.strip().upper()
+        if self.state == self.NORMAL:
+            return self._handle_normal(text_upper)
+        elif self.state == self.RESTORE:
+            return self._handle_restore(text_upper)
+        elif self.state == self.MAGIC_WORD:
+            return self._handle_magic_word(text_upper)
+        elif self.state in (self.ESCAPED, self.SECURED):
+            return self._handle_end(text_upper)
+        return []
+
+    def _handle_normal(self, text: str) -> list[str]:
+        self.state = self.SHUTDOWN
+        self.shutdown_step = 0
+        self.terminal_log = ["DODGSON! WE'VE GOT DODGSON HERE!"]
+        return self.terminal_log[:]
+
+    def _handle_restore(self, text: str) -> list[str]:
+        self.turns_taken += 1
+        if not self.said_magic_word:
+            if any(w in text for w in {"PLEASE", "MAGIC WORD", "MAGIC", "PLEAS"}):
+                self.said_magic_word = True
+                self.terminal_log = ["ACCESS GRANTED.", "NEDRY LOCK BYPASSED.", ""]
+                self._add_status_lines()
+                self.terminal_log.append("TYPE SYSTEM NAME TO RESTORE")
+                return self.terminal_log[:]
+            else:
+                self.state = self.MAGIC_WORD
+                self.nedry_lock_count += 1
+                self.threat = min(10, self.threat + 1)
+                taunt = _JP_NEDRY_TAUNTS[min(self.nedry_lock_count - 1, len(_JP_NEDRY_TAUNTS) - 1)]
+                self.terminal_log = [taunt]
+                if self.nedry_lock_count == 1:
+                    self.terminal_log.append("THE MAGIC WORD!")
+                if self.threat >= 10:
+                    return self._trigger_escape()
+                return self.terminal_log[:]
+
+        matched = None
+        for s in _JP_SYSTEMS:
+            if s["id"] in text or any(w in text for w in s["label"].split()):
+                matched = s; break
+            if len(text) >= 3 and text in s["id"]:
+                matched = s; break
+
+        if not matched:
+            self.threat = min(10, self.threat + 1)
+            self.terminal_log = [f"UNKNOWN SYSTEM: {text[:20]}"]
+            self._add_status_lines()
+            if self.threat >= 10:
+                return self._trigger_escape()
+            return self.terminal_log[:]
+
+        if self.systems[matched["id"]]:
+            self.terminal_log = [f"{matched['label']} ALREADY ONLINE."]
+            self._add_status_lines()
+            return self.terminal_log[:]
+
+        self.systems[matched["id"]] = True
+        self.terminal_log = [f"*** {matched['label']} RESTORED ***"]
+        if all(self.systems.values()):
+            self.state = self.SECURED
+            self.terminal_log += ["", "ALL SYSTEMS RESTORED.", "PARK SECURE.",
+                                   f"TURNS: {self.turns_taken}", "",
+                                   "MR. HAMMOND, THE PHONES", "ARE WORKING."]
+            return self.terminal_log[:]
+        self._add_status_lines()
+        remaining = sum(1 for v in self.systems.values() if not v)
+        self.terminal_log.append(f"{remaining} SYSTEM(S) REMAINING")
+        return self.terminal_log[:]
+
+    def _handle_magic_word(self, text: str) -> list[str]:
+        if any(w in text for w in {"PLEASE", "MAGIC WORD", "MAGIC", "PLEAS"}):
+            self.said_magic_word = True
+            self.state = self.RESTORE
+            self.terminal_log = ["ACCESS GRANTED.", "NEDRY LOCK BYPASSED.", ""]
+            self._add_status_lines()
+            self.terminal_log.append("TYPE SYSTEM NAME TO RESTORE")
+            return self.terminal_log[:]
+        self.nedry_lock_count += 1
+        self.threat = min(10, self.threat + 1)
+        idx = min(self.nedry_lock_count - 1, len(_JP_NEDRY_TAUNTS) - 1)
+        self.terminal_log = [_JP_NEDRY_TAUNTS[idx]]
+        if self.threat >= 10:
+            return self._trigger_escape()
+        self.terminal_log.append(f"THREAT: {'#' * self.threat}{'.' * (10 - self.threat)}")
+        return self.terminal_log[:]
+
+    def _handle_end(self, text: str) -> list[str]:
+        if any(w in text for w in {"PLAY", "AGAIN", "RESET", "RESTART", "YES", "NEW"}):
+            self.reset()
+            return ["REBOOTING ..."]
+        return []
+
+    def _trigger_escape(self) -> list[str]:
+        self.state = self.ESCAPED
+        self.escaped_dino = random.choice(_JP_DINOS)
+        self.terminal_log = [
+            f"*** {self.escaped_dino} HAS ESCAPED ***", "",
+            "LIFE, UH ... FINDS A WAY.", "",
+            "GAME OVER", f"TURNS: {self.turns_taken}",
+            "", "TYPE 'PLAY AGAIN' TO RESTART",
+        ]
+        return self.terminal_log[:]
+
+    def _add_status_lines(self):
+        for s in _JP_SYSTEMS:
+            on = self.systems[s["id"]]
+            self.terminal_log.append(f" [{'OK' if on else 'XX'}] {s['label']}")
+        if self.threat > 0:
+            self.terminal_log.append(f"THREAT: {'#' * self.threat}{'.' * (10 - self.threat)}")
+
+    def render(self, width: int = 375, height: int = 215) -> Image.Image:
+        img = Image.new("RGB", (width, height), _JP_BG)
+        draw = ImageDraw.Draw(img)
+        self._render_header(draw, width)
+        self._render_terminal(draw, width, height)
+        self._apply_scanlines(img)
+        return img
+
+    def _render_header(self, draw: ImageDraw.ImageDraw, w: int):
+        font = _jp_load_font(10, bold=True)
+        draw.rectangle([0, 0, w, 14], fill=(10, 10, 30))
+        draw.line([(0, 14), (w, 14)], fill=_JP_DIM)
+        if self.state == self.ESCAPED:
+            label, color = "JURASSIC PARK — CONTAINMENT BREACH", _JP_BRIGHT_RED
+        elif self.state == self.SECURED:
+            label, color = "JURASSIC PARK — SYSTEMS RESTORED", _JP_BRIGHT_GREEN
+        elif self.state in (self.RESTORE, self.MAGIC_WORD):
+            label, color = "JURASSIC PARK — SECURITY OFFLINE", _JP_AMBER
+        else:
+            label, color = "JURASSIC PARK SYSTEM", _JP_CYAN
+        draw.text((6, 2), label, fill=color, font=font)
+        if self.state in (self.RESTORE, self.MAGIC_WORD):
+            threat_label = f"THREAT {self.threat}/10"
+            bbox = draw.textbbox((0, 0), threat_label, font=font)
+            tw = bbox[2] - bbox[0]
+            tc = _JP_RED if self.threat >= 7 else (_JP_AMBER if self.threat >= 4 else _JP_GREEN)
+            draw.text((w - tw - 6, 2), threat_label, fill=tc, font=font)
+
+    def _render_terminal(self, draw: ImageDraw.ImageDraw, w: int, h: int):
+        font = _jp_load_font(12)
+        line_h = 16
+        margin_x = 8
+        top_y = 18
+        max_lines = (h - top_y - 4) // line_h
+        if self.state == self.BOOT:
+            lines = _JP_BOOT_LINES[:self.boot_step]
+        elif self.state == self.SHUTDOWN:
+            lines = _JP_SHUTDOWN_MSGS[:self.shutdown_step]
+        else:
+            lines = self.terminal_log[-max_lines:]
+        y = top_y
+        for line in lines:
+            if "***" in line and "ESCAPE" in line:      color = _JP_BRIGHT_RED
+            elif "***" in line:                          color = _JP_BRIGHT_GREEN
+            elif "AH AH AH" in line or "NOPE" in line: color = _JP_NEDRY_YELLOW
+            elif "MAGIC WORD" in line:                  color = _JP_NEDRY_YELLOW
+            elif line.startswith(" [XX]"):              color = _JP_RED
+            elif line.startswith(" [OK]"):              color = _JP_GREEN
+            elif "THREAT:" in line:                     color = _JP_AMBER
+            elif "GAME OVER" in line:                   color = _JP_RED
+            elif "RESTORED" in line or "SECURE" in line: color = _JP_BRIGHT_GREEN
+            elif "ONLINE" in line or "NOMINAL" in line: color = _JP_GREEN
+            elif "OFFLINE" in line or "DOWN" in line or "UNLOCKED" in line: color = _JP_RED
+            elif "LIFE" in line or "FINDS A WAY" in line: color = _JP_AMBER
+            elif "DODGSON" in line:                     color = _JP_AMBER
+            elif "WHITE_RABBIT" in line:                color = _JP_RED
+            elif "UNIX" in line or "INGEN" in line:    color = _JP_DIM
+            elif "HAMMOND" in line or "PHONES" in line: color = _JP_CYAN
+            elif "PLAY AGAIN" in line or "RESTART" in line: color = _JP_AMBER
+            else:                                        color = _JP_WHITE
+            draw.text((margin_x, y), line, fill=color, font=font)
+            y += line_h
+        if int(time.time() * 2) % 2 == 0:
+            draw.text((margin_x, y), "_", fill=_JP_WHITE, font=font)
+
+    def _apply_scanlines(self, img: Image.Image):
+        overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        odraw = ImageDraw.Draw(overlay)
+        w, h = img.size
+        for y in range(0, h, 4):
+            odraw.line([(0, y), (w, y)], fill=(0, 0, 0, 40))
+        composite = Image.alpha_composite(img.convert("RGBA"), overlay)
+        img.paste(composite.convert("RGB"))
+
+
+def _jp_frame_msg(game: JurassicGame) -> str:
+    """Render current game state to a base64 JPEG stamp message."""
+    img = game.render()
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=80)
+    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    return json.dumps({
+        "type": "stamp", "data": f"data:image/jpeg;base64,{b64}",
+        "x": 0.5, "y": 0.5, "w": 1.0, "h": 1.0, "r": 0, "ephemeral": True,
+    })
+
+
+_jurassic_game: JurassicGame | None = None
+_jurassic_task: asyncio.Task | None = None
+_jurassic_draw_ws: WebSocket | None = None
+
+
+async def _jp_send_frame():
+    if _jurassic_game is None:
+        return
+    img_data = _jp_frame_msg(_jurassic_game)
+    await manager.broadcast_to_displays_raw(img_data)
+    # Also send frame back to the draw client so they can see the game
+    if _jurassic_draw_ws is not None:
+        b64 = json.loads(img_data)["data"]
+        try:
+            await _jurassic_draw_ws.send_text(json.dumps({"type": "jurassic_frame", "data": b64}))
+        except Exception:
+            pass
+
+
+async def _jp_boot_task():
+    global _jurassic_game
+    while _jurassic_game and _jurassic_game.state == JurassicGame.BOOT:
+        _jurassic_game.advance_boot()
+        await _jp_send_frame()
+        await asyncio.sleep(0.3)
+
+
+async def _jp_handle_chat(text: str, who: str):
+    global _jurassic_game, _jurassic_task
+    if _jurassic_game is None:
+        return
+    game = _jurassic_game
+    prev_state = game.state
+    game.handle_input(text, who)
+    await _jp_send_frame()
+
+    # Run shutdown animation
+    if game.state == JurassicGame.SHUTDOWN:
+        while game.state == JurassicGame.SHUTDOWN:
+            game.advance_shutdown()
+            await _jp_send_frame()
+            await asyncio.sleep(0.5)
+        await _jp_send_frame()
+
+    # Run boot animation after reset
+    if game.state == JurassicGame.BOOT:
+        while _jurassic_game and _jurassic_game.state == JurassicGame.BOOT:
+            _jurassic_game.advance_boot()
+            await _jp_send_frame()
+            await asyncio.sleep(0.3)
+        await _jp_send_frame()
 
 
 @app.post("/admin/camera-control")
@@ -951,7 +1784,7 @@ async def activity():
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
-    global _last_visitor_time
+    global _last_visitor_time, _jurassic_game, _jurassic_task, _jurassic_draw_ws, _trail_game, _trail_draw_ws
     if role == "draw" and manager.draw_clients:
         await websocket.accept()
         await websocket.send_text(json.dumps({"type": "busy"}))
@@ -993,6 +1826,38 @@ async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
                 elif message["type"] == "wipe":
                     manager.history.clear()
                     await manager.broadcast_to_displays({"type": "clear"})
+                elif message["type"] == "jurassic_start":
+                    if _jurassic_task:
+                        _jurassic_task.cancel()
+                    _jurassic_game = JurassicGame()
+                    _jurassic_draw_ws = websocket
+                    _jurassic_task = asyncio.create_task(_jp_boot_task())
+                elif message["type"] == "jurassic_input":
+                    if _jurassic_game is not None:
+                        text = str(message.get("text", "")).strip()[:200]
+                        if text:
+                            asyncio.create_task(_jp_handle_chat(text, "YOU"))
+                elif message["type"] == "jurassic_stop":
+                    _jurassic_game = None
+                    _jurassic_draw_ws = None
+                    if _jurassic_task:
+                        _jurassic_task.cancel()
+                        _jurassic_task = None
+                    await manager.broadcast_to_displays({"type": "sync", "history": manager.history})
+                elif message["type"] == "trail_start":
+                    _trail_game = OregonTrailGame()
+                    _trail_draw_ws = websocket
+                    await _trail_send(websocket, _trail_game)
+                elif message["type"] == "trail_action":
+                    if _trail_game is not None and _trail_draw_ws is websocket:
+                        action = str(message.get("action", "")).strip()
+                        if action:
+                            _trail_game.handle(action)
+                            await _trail_send(websocket, _trail_game)
+                elif message["type"] == "trail_stop":
+                    _trail_game = None
+                    _trail_draw_ws = None
+                    await manager.broadcast_to_displays({"type": "sync", "history": manager.history})
             elif role == "view":
                 if message.get("type") == "reaction":
                     emoji = message.get("emoji", "")
@@ -1016,7 +1881,20 @@ async def websocket_endpoint(websocket: WebSocket, role: str = "draw"):
                                 manager.chat_history = manager.chat_history[-MAX_CHAT:]
                             _save_chat(manager.chat_history)
                             await manager.broadcast_to_views(msg)
+                            if _jurassic_game is not None:
+                                city = from_label.split(",")[0].title() if from_label else "VISITOR"
+                                asyncio.create_task(_jp_handle_chat(text, city))
     except WebSocketDisconnect:
         pass
     finally:
+        if role == "draw":
+            if _jurassic_game is not None:
+                _jurassic_game = None
+                _jurassic_draw_ws = None
+                if _jurassic_task:
+                    _jurassic_task.cancel()
+                    _jurassic_task = None
+            if _trail_draw_ws is websocket:
+                _trail_game = None
+                _trail_draw_ws = None
         manager.disconnect(websocket, role)
