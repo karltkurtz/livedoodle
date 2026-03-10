@@ -582,3 +582,64 @@ Next priorities (in order):
 - **Tic-Tac-Toe** — 9 numbered buttons for grid positions. Player is X, CPU picks random open square. Simple but interactive.
 - **2048** — dpad swipes merge numbered tiles. Pure grid logic, no animation needed. Could send a frame per move.
 - **Simon Says** — 4 colored buttons flash in sequence; player must repeat. Memory game. Buttons are the entire UI.
+
+---
+
+## Session Wrap-Up (2026-03-12)
+
+### Accomplished
+
+- **Jurassic Park game** — server-side PIL terminal game added to GAMES picker (amber button).
+  - Port of `~/Desktop/chat_jurassic.py` into `main.py` as `JurassicGame` class.
+  - SGI terminal aesthetic: dark blue-ish bg, green/amber/red/cyan text, scanlines.
+  - Chat-controlled: view clients type in home page chat to play; draw page host also has a text input.
+  - Server renders PIL frames and broadcasts as ephemeral stamps to display clients + `{type:"jurassic_frame"}` back to draw client (shown in overlay `<img>`).
+  - Boot sequence animation (300ms/line), shutdown animation (500ms/line).
+  - Game: type anything → Nedry virus; type PLEASE → bypass; restore FENCES/DOORS/PHONES/RAPTORS before threat hits 10 or a dino escapes.
+  - WS messages: `jurassic_start`, `jurassic_stop`, `jurassic_input` (from draw client); `jurassic_frame` (server → draw client).
+  - `_jurassic_draw_ws` global tracks which draw WS started the game; auto-stops on draw disconnect.
+
+- **Oregon Trail game** — server-side PIL terminal game added to GAMES picker (teal button).
+  - `OregonTrailGame` class in `main.py` with full state machine: INTRO → RATIONS → TRAVEL/EVENT → FORT → RIVER → VICTORY/DEATH.
+  - Amber-on-dark-green terminal aesthetic; progress bar with wagon marker and fort tick marks.
+  - Button-driven: server sends `{type:"trail_choices", choices:[{label, action}]}` after every action; draw client renders dynamic teal buttons below the game image.
+  - Stats: miles (0→2000), food (lbs), health (1–5), money; party of 4.
+  - Per turn: choose rations (once) + pace (SLOW/NORMAL/FAST) → food consumed → pace risk → random event.
+  - Random events: illness, broken axle, heavy rain, good hunting, berries, thief, snake bite, fair weather.
+  - Fort stops at 400/800/1300mi: buy food ($20/50lb), buy medicine ($40), rest.
+  - Snake River crossing at 900mi: ford (risky), caulk (safer), ferry ($10).
+  - ~15 turns to win; playable in ~10 minutes.
+  - WS messages: `trail_start`, `trail_stop`, `trail_action`; server → `trail_frame` + `trail_choices`.
+  - `_trail_game` / `_trail_draw_ws` globals; auto-stops on draw disconnect.
+
+- **GAMES picker buttons centered** — added `align-items:center` to the games picker items container.
+
+- **Fixed blank canvas submission hanging** — `end_session` returned early on empty history without sending `approved`, leaving draw.html stuck on SUBMITTING forever. Now sends `approved` immediately when history is empty.
+
+- **Maintenance page committed** — `templates/maintenance.html` added to repo. Full site aesthetic (starfield, scanlines, Share Tech Mono). Shown manually when Pi is offline for hardware work.
+
+- **Mac dev WebSocket fix** — local dev server requires `uvicorn[standard]` for WebSocket support. Added to install notes: `/opt/homebrew/bin/pip3.12 install --break-system-packages 'uvicorn[standard]'`.
+
+### Architecture Notes — Server-Side Games (Jurassic Park / Oregon Trail)
+
+Both games follow the same pattern, distinct from the JS canvas games (Maze, Bomberman, WARGAME):
+
+- **JS canvas games** (Maze, Bomberman, WARGAME): run entirely in draw.html; render to offscreen canvas; send JPEG stamps as ephemeral draw messages; display client just renders the stamp.
+- **Server-side games** (Jurassic Park, Oregon Trail): game logic + PIL rendering in `main.py`; server sends `{type:"jurassic_frame"/"trail_frame", data:b64}` back to the draw client AND broadcasts ephemeral stamps to display clients; draw client shows image in a canvas overlay.
+
+Key globals added to `main.py`:
+- `_jurassic_game`, `_jurassic_task`, `_jurassic_draw_ws`
+- `_trail_game`, `_trail_draw_ws`
+- `manager.broadcast_to_displays_raw(text)` — sends pre-serialized string, avoiding double JSON encode.
+
+### Incomplete / Loose Ends
+- **LCD white flash** — carry over, still occasional.
+- **Bomberman enemies** — carry over, deferred.
+- **Moderation confidence threshold** — carry over, still not built.
+- **GIF playback from admin page** — carry over, still not built.
+
+### Resume From Here
+1. **New games** — Snake is the best next pick.
+2. **Bomberman enemies** — simple wandering AI.
+3. **LCD white flash** — black `clearCanvas()` as quick win, then investigate Pi WS reconnects.
+4. **Moderation confidence threshold** — second Groq pass, flag only if ≥ 7.
