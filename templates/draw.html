@@ -2201,6 +2201,7 @@
 
   function bExplode(b) {
     bBombs = bBombs.filter(x => x !== b);
+    bDirty = true;
     const now = Date.now();
     const exp = now + FLAME_LIFE;
     bFlames.push({ col: b.col, row: b.row, expireAt: exp });
@@ -2231,6 +2232,10 @@
     }
   }
 
+  let bDirty = false;
+  let bLastSend = 0;
+  const B_SEND_INTERVAL = 125; // max ~8fps to display
+
   function bPlaceBomb() {
     if (!bombActive || bGameOver || bGameWon) return;
     if (bBombs.length >= bMaxBombs) return;
@@ -2238,6 +2243,7 @@
     const b = { col: bPlayerCol, row: bPlayerRow, placeTime: Date.now() };
     b.timerId = setTimeout(() => bExplode(b), BOMB_FUSE);
     bBombs.push(b);
+    bDirty = true;
   }
 
   function moveBomber(dc, dr) {
@@ -2245,6 +2251,7 @@
     const nc = bPlayerCol + dc, nr = bPlayerRow + dr;
     if (bSolid(nc, nr) || bHasBomb(nc, nr)) return;
     bPlayerCol = nc; bPlayerRow = nr;
+    bDirty = true;
     // collect powerup
     const cell = bGrid[nr][nc];
     if (cell === 5) { bMaxBombs = Math.min(bMaxBombs + 1, 5); bGrid[nr][nc] = 0; }
@@ -2263,18 +2270,26 @@
   function bTick() {
     if (!bombActive) return;
     const now = Date.now();
+    const prevLen = bFlames.length;
     bFlames = bFlames.filter(f => f.expireAt > now);
+    if (bFlames.length !== prevLen) bDirty = true; // flames just expired
     // standing-in-flame check
     if (!bGameOver && !bGameWon &&
         bFlames.some(f => f.col === bPlayerCol && f.row === bPlayerRow && f.expireAt > now)) {
       bGameOver = true; bomberGameOver(); return;
     }
-    drawBombFrame();
-    sendBombFrame();
+    drawBombFrame(); // always draw locally for smooth player experience
+    // Send to display only when dirty OR actively animating, capped at B_SEND_INTERVAL
+    const hasAnimation = bBombs.length > 0 || bFlames.length > 0;
+    if ((bDirty || hasAnimation) && (now - bLastSend) >= B_SEND_INTERVAL) {
+      sendBombFrame();
+      bLastSend = now;
+      bDirty = false;
+    }
   }
 
   function sendBombFrame() {
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.55);
     send({ type: "stamp", data: dataUrl, x: 0.5, y: 0.5, w: 1.0, h: 1.0, r: 0, ephemeral: true });
   }
 
@@ -2283,6 +2298,7 @@
     bSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
     bBombs = []; bFlames = [];
     bMaxBombs = 1; bBombRange = 3;
+    bDirty = true; bLastSend = 0;
     bCellSize = Math.max(24, Math.floor(Math.min(canvas.width / 19, canvas.height / 11)));
     bCols = Math.floor(canvas.width  / bCellSize); if (bCols % 2 === 0) bCols--;
     bRows = Math.floor(canvas.height / bCellSize); if (bRows % 2 === 0) bRows--;

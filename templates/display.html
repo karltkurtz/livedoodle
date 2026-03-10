@@ -347,13 +347,24 @@
       history.push(msg);
       drawSegment(msg);
     } else if (msg.type === "stamp") {
-      history.push(msg);
-      if (imageCache[msg.data]) {
-        drawStamp(msg, imageCache[msg.data]);
+      if (msg.ephemeral) {
+        // Game frame — draw directly, never add to history (avoids redraw cascade + white flash)
+        if (imageCache[msg.data]) {
+          drawStamp(msg, imageCache[msg.data]);
+        } else {
+          const img = new Image();
+          img.onload = () => { imageCache[msg.data] = img; drawStamp(msg, img); };
+          img.src = msg.data;
+        }
       } else {
-        const img = new Image();
-        img.onload = () => { imageCache[msg.data] = img; drawStamp(msg, img); };
-        img.src = msg.data;
+        history.push(msg);
+        if (imageCache[msg.data]) {
+          drawStamp(msg, imageCache[msg.data]);
+        } else {
+          const img = new Image();
+          img.onload = () => { imageCache[msg.data] = img; redraw(); };
+          img.src = msg.data;
+        }
       }
     } else if (msg.type === "fill") {
       history.push(msg);
