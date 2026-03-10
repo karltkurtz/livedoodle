@@ -250,14 +250,40 @@
 
     #quotes-toggle-btn.open { box-shadow: 0 0 14px rgba(255,74,42,0.6); }
 
+    @keyframes games-pulse {
+      0%, 100% { box-shadow: 0 0 6px rgba(191,95,255,0.3); border-color: var(--purple); }
+      50%       { box-shadow: 0 0 18px rgba(191,95,255,0.9), 0 0 30px rgba(191,95,255,0.3); border-color: #d88fff; }
+    }
+
     #games-toggle-btn {
       border-color: var(--purple);
       color: var(--purple);
       box-shadow: 0 0 8px rgba(191,95,255,0.3);
       width: 72px;
+      position: relative;
+      animation: games-pulse 1.8s ease-in-out infinite;
     }
 
-    #games-toggle-btn.open { box-shadow: 0 0 14px rgba(191,95,255,0.6); }
+    #games-toggle-btn.open {
+      animation: none;
+      box-shadow: 0 0 14px rgba(191,95,255,0.6);
+    }
+
+    #games-toggle-btn::after {
+      content: 'NEW';
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: var(--coral);
+      color: #fff;
+      font-size: 7px;
+      letter-spacing: 0.05em;
+      padding: 1px 3px;
+      line-height: 1.4;
+      animation: blink 1s step-end infinite;
+    }
+
+    #games-toggle-btn.open::after { display: none; }
 
     #dpad {
       display: none;
