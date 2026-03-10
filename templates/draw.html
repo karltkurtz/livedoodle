@@ -1700,15 +1700,42 @@
     sendMazeFrame();
   }
 
+  let mazeMoving = false;
+
   function moveBall(dc, dr) {
-    if (!mazeActive) return;
-    const nc = ballCol + dc, nr = ballRow + dr;
-    if (nr >= 0 && nr < mazeRows && nc >= 0 && nc < mazeCols && mazeGrid[nr][nc] === 0) {
+    if (!mazeActive || mazeMoving) return;
+
+    function canPass(c, r) {
+      return r >= 0 && r < mazeRows && c >= 0 && c < mazeCols && mazeGrid[r][c] === 0;
+    }
+
+    function hasPerp(c, r) {
+      // Check directions perpendicular to (dc, dr)
+      if (dc !== 0) return canPass(c, r - 1) || canPass(c, r + 1);
+      return canPass(c - 1, r) || canPass(c + 1, r);
+    }
+
+    function step() {
+      const nc = ballCol + dc, nr = ballRow + dr;
+      if (!canPass(nc, nr)) { mazeMoving = false; return; }
+
       ballCol = nc; ballRow = nr;
       drawMazeFrame();
       sendMazeFrame();
-      if (ballCol === exitCol && ballRow === exitRow) mazeWin();
+
+      if (ballCol === exitCol && ballRow === exitRow) { mazeMoving = false; mazeWin(); return; }
+
+      // Stop at intersections (perpendicular exit available) or dead ends
+      const canContinue = canPass(ballCol + dc, ballRow + dr);
+      if (!canContinue || hasPerp(ballCol, ballRow)) {
+        mazeMoving = false;
+      } else {
+        setTimeout(step, 70);
+      }
     }
+
+    mazeMoving = true;
+    step();
   }
 
   function drawWinFrame(n) {
