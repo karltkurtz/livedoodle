@@ -631,6 +631,38 @@
       box-shadow: 0 0 8px rgba(0,229,255,0.3);
     }
 
+    /* Snake win/over overlays */
+    #snake-win-overlay,
+    #snake-over-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(0,0,0,0.0);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    #snake-win-overlay.visible,
+    #snake-over-overlay.visible { display: flex; }
+    #snake-win-box,
+    #snake-over-box {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: clamp(14px, 4vw, 18px);
+      letter-spacing: 0.2em;
+      text-align: center;
+      pointer-events: none;
+    }
+    #snake-win-box { color: var(--green); }
+    #snake-over-box { color: var(--coral); }
+    #dpad.snake #bomb-btn { display: none; }
+    #dpad.snake #exit-game-btn {
+      border-color: var(--green);
+      color: var(--green);
+      box-shadow: 0 0 8px rgba(57,255,20,0.3);
+    }
+
     .quote-btn {
       font-size: 9px;
       padding: 7px 10px;
@@ -1121,6 +1153,14 @@
   </div>
 </div>
 
+<!-- Snake overlays -->
+<div id="snake-win-overlay">
+  <div id="snake-win-box">YOU WIN!<br><span id="snake-win-count">5</span></div>
+</div>
+<div id="snake-over-overlay">
+  <div id="snake-over-box">GAME OVER<br><span id="snake-over-count">4</span></div>
+</div>
+
 <div id="game-toast"></div>
 
 <div id="toolbar">
@@ -1289,6 +1329,7 @@
       <button class="game-btn" id="wargame-btn" style="border-color:var(--green);color:var(--green);box-shadow:0 0 6px rgba(57,255,20,0.25);">WARGAME</button>
       <button class="game-btn" id="jurassic-btn" style="border-color:var(--amber);color:var(--amber);box-shadow:0 0 6px rgba(255,179,0,0.25);">JURASSIC PARK</button>
       <button class="game-btn" id="trail-btn" style="border-color:var(--teal);color:var(--teal);box-shadow:0 0 6px rgba(0,229,255,0.25);">OREGON TRAIL</button>
+      <button class="game-btn" id="snake-btn" style="border-color:var(--green);color:var(--green);box-shadow:0 0 6px rgba(57,255,20,0.25);">SNAKE</button>
     </div>
   </div>
 </div>
@@ -1558,7 +1599,7 @@
   const toolbar       = document.getElementById("toolbar");
 
   function startDraw(x, y) {
-    if (mazeActive || bombActive || wgActive || jpActive || trailActive) return;
+    if (mazeActive || bombActive || wgActive || jpActive || trailActive || snakeActive) return;
     if (stampOverlay.classList.contains("active")) return;
     if (isFilling) {
       const color = getColor();
@@ -1970,6 +2011,7 @@
   const mazeWinCount   = document.getElementById("maze-win-count");
   let mazeActive = false;
   let trailActive = false; // hoisted — assigned properly in Oregon Trail section below
+  let snakeActive = false; // hoisted — assigned properly in Snake section below
   let mazeGrid = [], mazeCols = 0, mazeRows = 0, mazeCellSize = 0;
   let ballCol = 1, ballRow = 1, exitCol = 0, exitRow = 0;
   let mazeSnapshot = null;
@@ -2852,6 +2894,44 @@
   }
   // --- End Oregon Trail Audio ---
 
+  // --- Snake Audio ---
+  function sndSnakeEat() {
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      [660, 880].forEach((f, i) => {
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.connect(gain); gain.connect(ac.destination);
+        osc.type = 'square'; osc.frequency.value = f;
+        const s = t + i * 0.06;
+        gain.gain.setValueAtTime(0.15, s);
+        gain.gain.exponentialRampToValueAtTime(0.001, s + 0.08);
+        osc.start(s); osc.stop(s + 0.1);
+      });
+    } catch(e) {}
+  }
+
+  function sndSnakeDead() {
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      const notes = [330, 294, 262, 220];
+      const durs  = [0.12, 0.12, 0.12, 0.45];
+      let offset = 0;
+      notes.forEach((f, i) => {
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.connect(gain); gain.connect(ac.destination);
+        osc.type = 'sawtooth'; osc.frequency.value = f;
+        const s = t + offset;
+        gain.gain.setValueAtTime(0.18, s);
+        gain.gain.exponentialRampToValueAtTime(0.001, s + durs[i]);
+        osc.start(s); osc.stop(s + durs[i] + 0.02);
+        offset += durs[i];
+      });
+    } catch(e) {}
+  }
+  // --- End Snake Audio ---
+
   function startBomberman() {
     bombActive = true; bGameOver = false; bGameWon = false;
     bSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -3292,8 +3372,14 @@
 
   // D-pad buttons — dispatch to active game
   function dpadMove(dc, dr) {
-    if (mazeActive)  moveBall(dc, dr);
-    else if (bombActive) moveBomber(dc, dr);
+    if (mazeActive)       moveBall(dc, dr);
+    else if (bombActive)  moveBomber(dc, dr);
+    else if (snakeActive) {
+      if (dc === 1)  snPending = "right";
+      if (dc === -1) snPending = "left";
+      if (dr === 1)  snPending = "down";
+      if (dr === -1) snPending = "up";
+    }
   }
   document.getElementById("dpad-up").addEventListener("click",    () => dpadMove(0, -1));
   document.getElementById("dpad-down").addEventListener("click",  () => dpadMove(0,  1));
@@ -3376,12 +3462,199 @@
     startTrail();
   });
 
+  // ── Snake ──
+  const SN_COLS = 22;
+  const SN_ROWS = 18;
+  let snDir = "right";
+  let snPending = "right";
+  let snBody = [];
+  let snApple = null;
+  let snScore = 0;
+  let snDead = false;
+  let snLoopId = null;
+  let snSnapshot = null;
+  let snLastSend = 0;
+  const SN_SEND_INTERVAL = 100;
+
+  function snCellSize() {
+    return Math.floor(Math.min(canvas.width / SN_COLS, canvas.height / SN_ROWS));
+  }
+
+  function snSpawnApple() {
+    const occupied = new Set(snBody.map(b => `${b.c},${b.r}`));
+    const free = [];
+    for (let r = 0; r < SN_ROWS; r++)
+      for (let c = 0; c < SN_COLS; c++)
+        if (!occupied.has(`${c},${r}`)) free.push({c, r});
+    snApple = free.length ? free[Math.floor(Math.random() * free.length)] : null;
+  }
+
+  function snRender() {
+    const cs = snCellSize();
+    const offX = Math.floor((canvas.width  - SN_COLS * cs) / 2);
+    const offY = Math.floor((canvas.height - SN_ROWS * cs) / 2);
+
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let c = 0; c <= SN_COLS; c++) {
+      ctx.beginPath();
+      ctx.moveTo(offX + c * cs, offY);
+      ctx.lineTo(offX + c * cs, offY + SN_ROWS * cs);
+      ctx.stroke();
+    }
+    for (let r = 0; r <= SN_ROWS; r++) {
+      ctx.beginPath();
+      ctx.moveTo(offX,              offY + r * cs);
+      ctx.lineTo(offX + SN_COLS * cs, offY + r * cs);
+      ctx.stroke();
+    }
+
+    // Border
+    ctx.strokeStyle = '#00e5ff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(offX - 1, offY - 1, SN_COLS * cs + 2, SN_ROWS * cs + 2);
+    ctx.lineWidth = 1;
+
+    // Apple
+    if (snApple) {
+      const ax = offX + snApple.c * cs + cs / 2;
+      const ay = offY + snApple.r * cs + cs / 2;
+      ctx.fillStyle = '#ff4a2a';
+      ctx.beginPath();
+      ctx.arc(ax, ay, cs * 0.38, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Snake body
+    for (let i = 0; i < snBody.length; i++) {
+      const {c, r} = snBody[i];
+      const isHead = i === snBody.length - 1;
+      ctx.fillStyle = isHead ? '#ffb300' : '#00e5ff';
+      const pad = 2;
+      ctx.fillRect(offX + c * cs + pad, offY + r * cs + pad, cs - pad * 2, cs - pad * 2);
+    }
+
+    // HUD
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.font = `${Math.floor(canvas.width * 0.03)}px "Share Tech Mono", monospace`;
+    ctx.fillStyle = '#ffb300';
+    ctx.fillText(`SCORE: ${snScore}`, offX + 4, offY - cs * 0.6);
+    ctx.fillStyle = '#555';
+    ctx.textAlign = 'right';
+    ctx.fillText(`LENGTH: ${snBody.length}`, offX + SN_COLS * cs - 4, offY - cs * 0.6);
+    ctx.textAlign = 'left';
+  }
+
+  function snSendFrame() {
+    const now = Date.now();
+    if (now - snLastSend < SN_SEND_INTERVAL) return;
+    snLastSend = now;
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.55);
+    send({ type: "stamp", data: dataUrl, x: 0.5, y: 0.5, w: 1.0, h: 1.0, r: 0, ephemeral: true });
+  }
+
+  function snTick() {
+    if (!snakeActive || snDead) return;
+    snDir = snPending;
+    const head = snBody[snBody.length - 1];
+    const dx = snDir === "right" ? 1 : snDir === "left" ? -1 : 0;
+    const dy = snDir === "down"  ? 1 : snDir === "up"   ? -1 : 0;
+    const nc = head.c + dx, nr = head.r + dy;
+
+    // Wall collision
+    if (nc < 0 || nc >= SN_COLS || nr < 0 || nr >= SN_ROWS) {
+      snDead = true; snakeGameOver(); return;
+    }
+    // Self collision (exclude tail tip which will move)
+    const willEat = snApple && nc === snApple.c && nr === snApple.r;
+    const bodyCheck = willEat ? snBody : snBody.slice(1);
+    if (bodyCheck.some(b => b.c === nc && b.r === nr)) {
+      snDead = true; snakeGameOver(); return;
+    }
+
+    snBody.push({c: nc, r: nr});
+    if (willEat) {
+      snScore++;
+      sndSnakeEat();
+      snSpawnApple();
+      if (!snApple) { snakeWin(); return; }
+    } else {
+      snBody.shift();
+    }
+
+    snRender();
+    snSendFrame();
+  }
+
+  function snakeWin() {
+    clearInterval(snLoopId);
+    snRender();
+    const winOverlay = document.getElementById("snake-win-overlay");
+    const winCount   = document.getElementById("snake-win-count");
+    winOverlay.classList.add("visible");
+    let n = 5; winCount.textContent = n;
+    sndWin();
+    const t = setInterval(() => {
+      winCount.textContent = --n;
+      if (n <= 0) { clearInterval(t); winOverlay.classList.remove("visible"); endSnake(); }
+    }, 1000);
+  }
+
+  function snakeGameOver() {
+    clearInterval(snLoopId);
+    snRender();
+    const overOverlay = document.getElementById("snake-over-overlay");
+    const overCount   = document.getElementById("snake-over-count");
+    overOverlay.classList.add("visible");
+    let n = 4; overCount.textContent = n;
+    sndSnakeDead();
+    const t = setInterval(() => {
+      overCount.textContent = --n;
+      if (n <= 0) { clearInterval(t); overOverlay.classList.remove("visible"); endSnake(); }
+    }, 1000);
+  }
+
+  function startSnake() {
+    snakeActive = true;
+    snDead = false;
+    snScore = 0;
+    snDir = "right";
+    snPending = "right";
+    const cx = Math.floor(SN_COLS / 2), cy = Math.floor(SN_ROWS / 2);
+    snBody = [{c: cx - 2, r: cy}, {c: cx - 1, r: cy}, {c: cx, r: cy}];
+    snSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    snSpawnApple();
+    dpad.classList.add("visible", "snake");
+    snRender();
+    snSendFrame();
+    snLoopId = setInterval(snTick, 150);
+  }
+
+  function endSnake() {
+    snakeActive = false;
+    clearInterval(snLoopId); snLoopId = null;
+    dpad.classList.remove("visible", "snake");
+    if (snSnapshot) { ctx.putImageData(snSnapshot, 0, 0); snSnapshot = null; }
+    else { ctx.clearRect(0, 0, canvas.width, canvas.height); replayHistory(); }
+    send({ type: "redraw", history: flatHistory() });
+  }
+
+  document.getElementById("snake-btn").addEventListener("click", () => {
+    closeAllPickers();
+    startSnake();
+  });
+
   document.getElementById("exit-game-btn").addEventListener("click", () => {
     if (mazeActive)      { mazeActive = false; mazeMoving = false; endMaze(); }
     else if (bombActive) { bGameOver = true; endBomberman(); }
     else if (wgActive)   { endWargame(); }
     else if (jpActive)   { endJurassic(); }
     else if (trailActive){ endTrail(); }
+    else if (snakeActive){ endSnake(); }
   });
 
   // Keyboard arrow keys + space for bomb
@@ -3397,6 +3670,11 @@
       if (e.key === "ArrowLeft")  { e.preventDefault(); moveBomber(-1, 0); }
       if (e.key === "ArrowRight") { e.preventDefault(); moveBomber(1,  0); }
       if (e.key === " ")          { e.preventDefault(); bPlaceBomb(); }
+    } else if (snakeActive) {
+      if (e.key === "ArrowUp")    { e.preventDefault(); snPending = "up"; }
+      if (e.key === "ArrowDown")  { e.preventDefault(); snPending = "down"; }
+      if (e.key === "ArrowLeft")  { e.preventDefault(); snPending = "left"; }
+      if (e.key === "ArrowRight") { e.preventDefault(); snPending = "right"; }
     }
   });
 
