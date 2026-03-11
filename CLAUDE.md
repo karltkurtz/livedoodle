@@ -576,7 +576,6 @@ Next priorities (in order):
 4. **Moderation confidence threshold** — second Groq pass, flag only if ≥ 7.
 
 ### Game Ideas for Future Sessions
-- **Snake** — dpad moves head, grows on eat, dies on self/wall collision. Easiest next game. Apple spawns randomly, score shown in HUD.
 - **Pong** — single-player vs CPU. Dpad up/down moves paddle. CPU paddle tracks ball with slight lag. Ball speeds up over time.
 - **Breakout** — dpad left/right moves paddle. Bricks arranged in rows with color tiers. Ball bounces, clears bricks. Classic.
 - **Tic-Tac-Toe** — 9 numbered buttons for grid positions. Player is X, CPU picks random open square. Simple but interactive.
@@ -624,7 +623,7 @@ Next priorities (in order):
 
 Both games follow the same pattern, distinct from the JS canvas games (Maze, Bomberman, WARGAME):
 
-- **JS canvas games** (Maze, Bomberman, WARGAME): run entirely in draw.html; render to offscreen canvas; send JPEG stamps as ephemeral draw messages; display client just renders the stamp.
+- **JS canvas games** (Maze, Bomberman, WARGAME, Snake): run entirely in draw.html; render to offscreen canvas; send JPEG stamps as ephemeral draw messages; display client just renders the stamp.
 - **Server-side games** (Jurassic Park, Oregon Trail): game logic + PIL rendering in `main.py`; server sends `{type:"jurassic_frame"/"trail_frame", data:b64}` back to the draw client AND broadcasts ephemeral stamps to display clients; draw client shows image in a canvas overlay.
 
 Key globals added to `main.py`:
@@ -640,6 +639,49 @@ Key globals added to `main.py`:
 
 ### Resume From Here
 1. **New games** — Snake is the best next pick.
+2. **Bomberman enemies** — simple wandering AI.
+3. **LCD white flash** — black `clearCanvas()` as quick win, then investigate Pi WS reconnects.
+4. **Moderation confidence threshold** — second Groq pass, flag only if ≥ 7.
+
+---
+
+## Session Wrap-Up (2026-03-12 continued)
+
+### Accomplished
+
+- **Web Audio API sounds — all games.** Synthesized retro sounds using Web Audio API (no audio files). AudioContext created lazily on first interaction, shared via `_bAC()` helper. All sounds wrapped in try/catch.
+
+  - **Bomberman:** `sndBombPlace()` (sine thud), `sndExplosion()` (lowpass noise burst), `sndPowerup()` (ascending arpeggio), `sndWin()` (fanfare), `sndGameOver()` (descending sawtooth). Wired into `bPlaceBomb()`, `bExplode()`, `moveBomber()`, `bomberWin()`, `bomberGameOver()`.
+  - **Maze:** `sndMazeStep()` (quiet 880 Hz tick per cell), `sndMazeWall()` (square bump on blocked move), `sndMazeWin()` (fanfare). Wired into `step()` and `mazeWin()`.
+  - **WARGAME:** `sndWgBoot()` (terminal beep per boot line), `sndWgTarget()` (two-note blip on target lock), `sndWgLaunch()` (sawtooth siren), `sndWgImpact()` (noise + thud, fires twice), `sndWgLesson()` (mournful descending minor scale). Wired into boot interval, `wgHandleInput()`, and missile animation.
+  - **Oregon Trail:** `sndTrailClick()` (button blip), `sndTrailWagon()` (two low thumps on TRAVEL/EVENT), `sndTrailFort()` (bell chord), `sndTrailRiver()` (bandpass noise), `sndTrailVictory()` (fanfare), `sndTrailDeath()` (descending sawtooth). Server now includes `state` field in `trail_choices` message so client knows which sound to play. Wired in `handleServerMessage` on `trail_choices` and in choice button click handler.
+
+- **Snake game** — pure JS canvas game added to GAMES picker (green button).
+  - Same architecture as Maze/Bomberman: renders to canvas, broadcasts JPEG ephemeral stamps to display.
+  - 22×18 grid, 150ms auto-tick; dpad and arrow keys queue next direction.
+  - Amber head, teal body, coral apple, teal border.
+  - GAME OVER (coral overlay + countdown) and YOU WIN (green overlay + countdown).
+  - Sounds: `sndSnakeEat()` (two-note blip on apple), `sndSnakeDead()` (descending sawtooth on death). Win reuses `sndWin()`.
+  - Initially attempted as server-side PIL game (like Oregon Trail); scrapped and rebuilt as client-side JS.
+
+### Decisions Made
+- All game sounds use Web Audio API synthesis — no audio files, no CDN dependencies.
+- `_bAC()` is a shared AudioContext getter used by all game sound functions (Bomberman, Maze, WARGAME, Oregon Trail, Snake all share one AudioContext instance).
+- Snake is client-side (JS canvas), not server-side (PIL). Server-side was rejected because the user wants dpad control like the other games, not chat control.
+- `trail_choices` server message now includes `state` field so draw.html can select the right ambient sound per game state.
+
+### Architecture Update — JS Canvas Games
+The JS canvas game list is now: **Maze, Bomberman, WARGAME, Snake**.
+All four: render to canvas, send JPEG ephemeral stamps, use dpad/arrow keys, restore canvas snapshot on exit.
+
+### Incomplete / Loose Ends
+- **LCD white flash** — carry over, still occasional.
+- **Bomberman enemies** — carry over, deferred.
+- **Moderation confidence threshold** — carry over, still not built.
+- **GIF playback from admin page** — carry over, still not built.
+
+### Resume From Here
+1. **New games** — Pong or Breakout (both dpad-native canvas games).
 2. **Bomberman enemies** — simple wandering AI.
 3. **LCD white flash** — black `clearCanvas()` as quick win, then investigate Pi WS reconnects.
 4. **Moderation confidence threshold** — second Groq pass, flag only if ≥ 7.
