@@ -1662,6 +1662,11 @@
       trailScreen.src = msg.data;
     } else if (msg.type === "trail_choices") {
       trailSetChoices(msg.choices);
+      if (msg.state === "TRAVEL" || msg.state === "EVENT") sndTrailWagon();
+      else if (msg.state === "FORT")    sndTrailFort();
+      else if (msg.state === "RIVER")   sndTrailRiver();
+      else if (msg.state === "VICTORY") sndTrailVictory();
+      else if (msg.state === "DEATH")   sndTrailDeath();
     } else if (msg.type === "busy") {
       ws.onclose = null;
       ws.close();
@@ -2736,6 +2741,117 @@
   }
   // --- End WARGAME Audio ---
 
+  // --- Oregon Trail Audio ---
+  function sndTrailClick() {
+    // Soft button confirm blip
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.connect(gain); gain.connect(ac.destination);
+      osc.type = 'square'; osc.frequency.value = 660;
+      gain.gain.setValueAtTime(0.1, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+      osc.start(t); osc.stop(t + 0.08);
+    } catch(e) {}
+  }
+
+  function sndTrailWagon() {
+    // Rhythmic creak — two low thumps simulating wagon wheels
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      [0, 0.18].forEach(d => {
+        const buf = ac.createBuffer(1, ac.sampleRate * 0.12, ac.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ac.sampleRate * 0.04));
+        const src = ac.createBufferSource(); src.buffer = buf;
+        const filt = ac.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 300;
+        const gain = ac.createGain();
+        src.connect(filt); filt.connect(gain); gain.connect(ac.destination);
+        gain.gain.setValueAtTime(0.4, t + d);
+        src.start(t + d); src.stop(t + d + 0.15);
+      });
+    } catch(e) {}
+  }
+
+  function sndTrailFort() {
+    // Two-note bell-like chord — arriving at a fort
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      [523, 659].forEach((f, i) => {
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.connect(gain); gain.connect(ac.destination);
+        osc.type = 'sine'; osc.frequency.value = f;
+        gain.gain.setValueAtTime(0.15, t + i * 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.05 + 0.6);
+        osc.start(t + i * 0.05); osc.stop(t + i * 0.05 + 0.65);
+      });
+    } catch(e) {}
+  }
+
+  function sndTrailRiver() {
+    // Filtered noise burst — rushing water
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      const buf = ac.createBuffer(1, ac.sampleRate * 0.5, ac.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1);
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const filt = ac.createBiquadFilter(); filt.type = 'bandpass';
+      filt.frequency.value = 800; filt.Q.value = 0.5;
+      const gain = ac.createGain();
+      src.connect(filt); filt.connect(gain); gain.connect(ac.destination);
+      gain.gain.setValueAtTime(0.0, t);
+      gain.gain.linearRampToValueAtTime(0.3, t + 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+      src.start(t); src.stop(t + 0.55);
+    } catch(e) {}
+  }
+
+  function sndTrailVictory() {
+    // Bright ascending fanfare
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      const notes = [392, 523, 659, 784, 1047];
+      const durs  = [0.1,  0.1,  0.1,  0.15, 0.5];
+      let offset = 0;
+      notes.forEach((f, i) => {
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.connect(gain); gain.connect(ac.destination);
+        osc.type = 'square'; osc.frequency.value = f;
+        const s = t + offset;
+        gain.gain.setValueAtTime(0.2, s);
+        gain.gain.exponentialRampToValueAtTime(0.001, s + durs[i]);
+        osc.start(s); osc.stop(s + durs[i] + 0.02);
+        offset += durs[i];
+      });
+    } catch(e) {}
+  }
+
+  function sndTrailDeath() {
+    // Slow descending toll — low sawtooth dying away
+    try {
+      const ac = _bAC(), t = ac.currentTime;
+      const notes = [330, 294, 262, 220];
+      const durs  = [0.25, 0.25, 0.25, 0.8];
+      let offset = 0;
+      notes.forEach((f, i) => {
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.connect(gain); gain.connect(ac.destination);
+        osc.type = 'sawtooth'; osc.frequency.value = f;
+        const s = t + offset;
+        gain.gain.setValueAtTime(0.18, s);
+        gain.gain.exponentialRampToValueAtTime(0.001, s + durs[i]);
+        osc.start(s); osc.stop(s + durs[i] + 0.05);
+        offset += durs[i];
+      });
+    } catch(e) {}
+  }
+  // --- End Oregon Trail Audio ---
+
   function startBomberman() {
     bombActive = true; bGameOver = false; bGameWon = false;
     bSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -3233,6 +3349,7 @@
       btn.textContent = c.label;
       btn.addEventListener("click", () => {
         if (!trailActive) return;
+        sndTrailClick();
         send({ type: "trail_action", action: c.action });
       });
       trailChoices.appendChild(btn);

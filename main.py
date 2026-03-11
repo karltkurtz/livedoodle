@@ -1225,7 +1225,7 @@ async def _trail_send(ws: WebSocket, game: OregonTrailGame):
     b64 = json.loads(img_data)["data"]
     try:
         await ws.send_text(json.dumps({"type": "trail_frame",   "data": b64}))
-        await ws.send_text(json.dumps({"type": "trail_choices", "choices": game.choices()}))
+        await ws.send_text(json.dumps({"type": "trail_choices", "choices": game.choices(), "state": game.state}))
     except Exception:
         pass
 
